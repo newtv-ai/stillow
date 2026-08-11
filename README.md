@@ -8,9 +8,9 @@ Stillow 是一个面向 Android 与 iOS 的低压力个性化助眠陪伴 App。
 
 ## Current status / 当前状态
 
-Stillow is a functional alpha. The principal app flows, local persistence, audio playback, offline downloads, automated tests, and Android builds are working. Physical-device HealthKit/Health Connect validation, store review, and the first signed public release are still pending.
+Stillow is a functional alpha. The principal app flows, local persistence, audio playback, offline downloads, automated tests, and Android builds are working. The first signed Android alpha is available from GitHub Releases. Physical-device HealthKit/Health Connect validation, iOS device builds, and store review are still pending.
 
-当前已可完整体验主要流程，但仍属于功能 Alpha。Android 构建和自动化测试可用；健康数据真机授权、iOS 真机构建、商店审核与首个正式签名 Release 尚待完成。
+当前已可完整体验主要流程，但仍属于功能 Alpha。首个正式签名 Android Alpha 已通过 GitHub Releases 提供；健康数据真机授权、iOS 真机构建与商店审核仍待完成。
 
 ## What is implemented / 已实现
 
