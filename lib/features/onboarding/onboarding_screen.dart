@@ -66,68 +66,82 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: StillowBackdrop(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxHeight < 720;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_step > 0)
-                  QuietIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    tooltip: '返回',
-                    onPressed: _back,
-                  )
-                else
-                  const StillowWordmark(),
-                const Spacer(),
-                TextButton(
-                  onPressed: _saving ? null : _finish,
-                  child: Text(widget.initialProfile == null ? '先随便听听' : '保留现在'),
+                Row(
+                  children: [
+                    if (_step > 0)
+                      QuietIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        tooltip: '返回',
+                        onPressed: _back,
+                      )
+                    else
+                      const StillowWordmark(),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: _saving ? null : _finish,
+                      child: Text(
+                        widget.initialProfile == null ? '先随便听听' : '保留现在',
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 10 : 16),
+                _StepDots(step: _step),
+                SizedBox(height: compact ? 12 : 18),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.025, 0),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: SingleChildScrollView(
+                      key: ValueKey(_step),
+                      child: _buildStep(compact: compact),
+                    ),
+                  ),
+                ),
+                SizedBox(height: compact ? 8 : 12),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: Size.fromHeight(compact ? 50 : 54),
+                  ),
+                  onPressed: _saving || !_canContinue ? null : _advance,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: _saving
+                        ? const SizedBox(
+                            key: ValueKey('saving'),
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            _step == 2 ? '今晚先试试' : '继续',
+                            key: ValueKey(_step),
+                          ),
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 30),
-            _StepDots(step: _step),
-            const SizedBox(height: 28),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.025, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: SingleChildScrollView(
-                  key: ValueKey(_step),
-                  child: _buildStep(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: _saving || !_canContinue ? null : _advance,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: _saving
-                    ? const SizedBox(
-                        key: ValueKey('saving'),
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(_step == 2 ? '今晚先试试' : '继续', key: ValueKey(_step)),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -142,12 +156,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     };
   }
 
-  Widget _buildStep() {
+  Widget _buildStep({required bool compact}) {
     return switch (_step) {
       0 => _ChoiceStep<SupportNeed>(
         title: '今晚，你更希望得到哪种陪伴？',
         subtitle: '没有标准答案，只选最接近此刻的感受。',
         value: _supportNeed,
+        compact: compact,
         onChanged: (value) => setState(() => _supportNeed = value),
         choices: const [
           _Choice(
@@ -191,6 +206,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         title: '什么声音会让你舒服一些？',
         subtitle: '以后随时可以换，不需要现在就确定。',
         value: _soundPreference,
+        compact: compact,
         onChanged: (value) => setState(() => _soundPreference = value),
         choices: const [
           _Choice(
@@ -219,6 +235,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         title: '你喜欢怎样的陪伴？',
         subtitle: '不喜欢被指导，也完全没关系。',
         value: _guidancePreference,
+        compact: compact,
         onChanged: (value) => setState(() => _guidancePreference = value),
         choices: const [
           _Choice(
@@ -273,6 +290,7 @@ class _ChoiceStep<T> extends StatelessWidget {
     required this.choices,
     required this.value,
     required this.onChanged,
+    required this.compact,
   });
 
   final String title;
@@ -280,24 +298,40 @@ class _ChoiceStep<T> extends StatelessWidget {
   final List<_Choice<T>> choices;
   final T? value;
   final ValueChanged<T> onChanged;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.displaySmall),
-        const SizedBox(height: 12),
-        Text(subtitle, style: Theme.of(context).textTheme.bodyLarge),
-        const SizedBox(height: 30),
-        for (final choice in choices) ...[
+        Text(
+          title,
+          style: compact
+              ? Theme.of(
+                  context,
+                ).textTheme.displaySmall?.copyWith(fontSize: 27, height: 1.18)
+              : Theme.of(context).textTheme.displaySmall,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: compact
+              ? Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.4)
+              : Theme.of(context).textTheme.bodyLarge,
+        ),
+        SizedBox(height: compact ? 12 : 18),
+        for (var index = 0; index < choices.length; index++) ...[
           SoftChoiceCard(
-            title: choice.title,
-            icon: choice.icon,
-            selected: value == choice.value,
-            onTap: () => onChanged(choice.value),
+            title: choices[index].title,
+            icon: choices[index].icon,
+            selected: value == choices[index].value,
+            dense: true,
+            onTap: () => onChanged(choices[index].value),
           ),
-          const SizedBox(height: 12),
+          if (index != choices.length - 1) SizedBox(height: compact ? 8 : 10),
         ],
       ],
     );

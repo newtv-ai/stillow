@@ -104,14 +104,14 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
             Text('一起轻轻回顾一下', style: Theme.of(context).textTheme.displaySmall),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               '这不是考试，也不会给你贴标签。可以只选愿意回答的；选择仅用于当前页面，退出后不保存。',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: 26),
+            const SizedBox(height: 18),
             _ReviewQuestion<SleepDifficultyDuration>(
               title: '这样的入睡或夜醒困难，大概持续多久了？',
               value: _duration,

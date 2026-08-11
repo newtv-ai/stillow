@@ -51,17 +51,17 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 18),
             Text(
               '醒来以后，\n感觉怎么样？',
               style: Theme.of(context).textTheme.displaySmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               '只凭现在的感觉选一个。没有标准答案。',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Wrap(
               spacing: 8,
               runSpacing: 8,

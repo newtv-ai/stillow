@@ -102,7 +102,13 @@ class ContentCatalog {
             .map(
               (session) => (
                 session: session,
-                score: _score(session, profile, goal, SleepUseContext.bedtime),
+                score: _score(
+                  session,
+                  profile,
+                  goal,
+                  SleepUseContext.bedtime,
+                  region,
+                ),
               ),
             )
             .toList(growable: false)
@@ -128,6 +134,7 @@ class ContentCatalog {
                   profile,
                   'night_awake',
                   SleepUseContext.nightAwake,
+                  region,
                 ),
               ),
             )
@@ -214,11 +221,20 @@ class ContentCatalog {
     UserProfile profile,
     String goal,
     SleepUseContext context,
+    ContentRegion region,
   ) {
     var score = session.priority;
     if (session.tags.contains(goal)) score += 100;
     if (goal == 'not_sleepy') {
-      if (session.kind == SessionKind.lecture) score += 90;
+      if (session.kind == SessionKind.lecture) {
+        score += 90;
+        final duration = session.durationSeconds ?? 0;
+        score += duration >= 1800 ? 45 : -30;
+        if (region == ContentRegion.mainlandChina &&
+            session.languageCode == 'zh') {
+          score += 60;
+        }
+      }
       if (session.kind == SessionKind.narrative) score += 55;
       if (session.kind == SessionKind.guidedVoice) score -= 25;
     }

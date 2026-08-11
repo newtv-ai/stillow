@@ -145,9 +145,12 @@ void main() {
     test('课程库有足够内容，并为在线课程提供离线兜底', () {
       final china = catalog.coursesFor(ContentRegion.mainlandChina);
       final international = catalog.coursesFor(ContentRegion.international);
-      expect(china.length, greaterThanOrEqualTo(4));
+      expect(china.length, greaterThanOrEqualTo(7));
       expect(international.length, 72);
-      expect(catalog.items.where((item) => item.isPlaybackEligible).length, 98);
+      expect(
+        catalog.items.where((item) => item.isPlaybackEligible).length,
+        101,
+      );
       expect(
         china.every((item) => item.playbackType == PlaybackType.assetAudio),
         isTrue,
@@ -167,6 +170,25 @@ void main() {
           reason: course.id,
         );
       }
+    });
+
+    test('国内用户觉得还不困时，优先长篇中文课程', () {
+      final result = catalog.recommend(
+        const UserProfile(
+          onboardingComplete: true,
+          supportNeed: SupportNeed.notSleepy,
+          soundPreference: SoundPreference.softVoice,
+          guidancePreference: GuidancePreference.occasional,
+        ),
+        ContentRegion.mainlandChina,
+        NightState.notSleepy,
+      );
+
+      expect(result.kind, SessionKind.lecture);
+      expect(result.languageCode, 'zh');
+      expect(result.durationSeconds, greaterThanOrEqualTo(30 * 60));
+      expect(result.playbackType, PlaybackType.assetAudio);
+      expect(result.tags, contains('not_sleepy'));
     });
 
     test('首次选择中的每种声音和引导偏好都有真实可播放内容', () {
@@ -216,11 +238,15 @@ void main() {
         greaterThanOrEqualTo(2),
       );
       expect(
-        china.any(
-          (item) =>
-              item.kind == SessionKind.lecture && item.languageCode == 'zh',
-        ),
-        isTrue,
+        china
+            .where(
+              (item) =>
+                  item.kind == SessionKind.lecture &&
+                  item.languageCode == 'zh' &&
+                  (item.durationSeconds ?? 0) >= 30 * 60,
+            )
+            .length,
+        greaterThanOrEqualTo(3),
       );
       expect(china.any((item) => item.kind == SessionKind.guidedVoice), isTrue);
     });

@@ -12,6 +12,7 @@ Future<void> main() async {
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.stillow.audio',
     androidNotificationChannelName: 'Stillow 夜间陪伴',
+    androidNotificationIcon: 'drawable/ic_stillow_notification',
     androidNotificationOngoing: true,
   );
 

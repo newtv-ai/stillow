@@ -39,14 +39,14 @@ abstract final class StillowTheme {
       scaffoldBackgroundColor: StillowColors.background,
       textTheme: textTheme.copyWith(
         displaySmall: textTheme.displaySmall?.copyWith(
-          fontSize: 34,
-          height: 1.18,
+          fontSize: 28,
+          height: 1.2,
           fontWeight: FontWeight.w500,
-          letterSpacing: -0.8,
+          letterSpacing: -0.5,
         ),
         headlineMedium: textTheme.headlineMedium?.copyWith(
-          fontSize: 26,
-          height: 1.3,
+          fontSize: 24,
+          height: 1.25,
           fontWeight: FontWeight.w500,
         ),
         titleLarge: textTheme.titleLarge?.copyWith(
@@ -54,7 +54,7 @@ abstract final class StillowTheme {
           height: 1.35,
           fontWeight: FontWeight.w500,
         ),
-        bodyLarge: textTheme.bodyLarge?.copyWith(fontSize: 17, height: 1.65),
+        bodyLarge: textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
         bodyMedium: textTheme.bodyMedium?.copyWith(
           fontSize: 15,
           height: 1.6,

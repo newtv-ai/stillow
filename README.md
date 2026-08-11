@@ -18,8 +18,8 @@ Stillow is a functional alpha. The principal app flows, local persistence, audio
 - Bedtime states for racing thoughts, being calm but not sleepy, sleep pressure, body tension, noise, night waking, and uncertainty.
 - Persistent on-device personalization that learns separately from bedtime and night-waking feedback.
 - A JSON-maintained audio catalog with source, creator, license, region, checksum, and duration metadata.
-- 98 enabled sessions: ambient sound, music, guided relaxation, public-domain readings, and intentionally low-stimulation lectures.
-- 16 bundled audio files (about 78.5 MB) plus 82 direct HTTPS audio entries.
+- 101 enabled sessions: ambient sound, music, guided relaxation, public-domain readings, and intentionally low-stimulation lectures.
+- 19 bundled audio files (about 122.3 MB) plus 82 direct HTTPS audio entries.
 - Mainland China and international catalog selection without YouTube or Bilibili playback.
 - Search, categories, favorites, offline downloads, per-item removal, and a configurable night-waking preset.
 - In-app ad-free playback, pause/resume, looping, background playback, lock-screen controls, and 15/30/45/60-minute fade-out timers. Playback starts with a 30-minute timer by default, or 10 minutes in night-waking mode.

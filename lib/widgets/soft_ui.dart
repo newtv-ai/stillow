@@ -67,6 +67,7 @@ class SoftChoiceCard extends StatelessWidget {
     required this.onTap,
     this.subtitle,
     this.selected = false,
+    this.dense = false,
   });
 
   final String title;
@@ -74,9 +75,13 @@ class SoftChoiceCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool selected;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
+    final radius = dense ? 20.0 : 24.0;
+    final iconExtent = dense ? 40.0 : 48.0;
+
     return Semantics(
       button: true,
       selected: selected,
@@ -85,15 +90,17 @@ class SoftChoiceCard extends StatelessWidget {
         color: selected
             ? StillowColors.surfaceRaised
             : StillowColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
-            padding: const EdgeInsets.all(18),
+            padding: dense
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)
+                : const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(radius),
               border: Border.all(
                 color: selected ? StillowColors.sage : StillowColors.outline,
               ),
@@ -101,22 +108,31 @@ class SoftChoiceCard extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: iconExtent,
+                  height: iconExtent,
                   decoration: BoxDecoration(
                     color: StillowColors.backgroundSoft,
-                    borderRadius: BorderRadius.circular(17),
+                    borderRadius: BorderRadius.circular(dense ? 14 : 17),
                   ),
-                  child: Icon(icon, color: StillowColors.sage),
+                  child: Icon(
+                    icon,
+                    size: dense ? 22 : 24,
+                    color: StillowColors.sage,
+                  ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: dense ? 12 : 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: dense
+                            ? Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontSize: 18,
+                                height: 1.25,
+                              )
+                            : Theme.of(context).textTheme.titleLarge,
                       ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 5),
@@ -128,10 +144,10 @@ class SoftChoiceCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: dense ? 6 : 8),
                 Icon(
                   selected ? Icons.check_rounded : Icons.arrow_forward_rounded,
-                  size: 20,
+                  size: dense ? 19 : 20,
                   color: selected
                       ? StillowColors.moon
                       : StillowColors.linenMuted,

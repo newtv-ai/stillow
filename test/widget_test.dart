@@ -11,6 +11,7 @@ import 'package:stillow/features/morning/morning_review_screen.dart';
 import 'package:stillow/features/session/session_library_screen.dart';
 import 'package:stillow/services/offline_audio_store.dart';
 import 'package:stillow/theme/stillow_theme.dart';
+import 'package:stillow/widgets/soft_ui.dart';
 
 import 'support/fakes.dart';
 
@@ -57,6 +58,44 @@ void main() {
     expect(find.text('今晚不用完成\n任何任务。'), findsOneWidget);
     expect(store.profile.onboardingComplete, isTrue);
     expect(store.profile.supportNeed, SupportNeed.quietMind);
+  });
+
+  testWidgets('声音偏好的四个选项在常见窄屏内完整显示', (tester) async {
+    tester.view.devicePixelRatio = 2.5;
+    tester.view.physicalSize = const Size(920, 2048);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      StillowApp(
+        initialProfile: const UserProfile(),
+        preferenceStore: MemoryPreferenceStore(),
+        catalog: catalog,
+        region: ContentRegion.mainlandChina,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
+      ),
+    );
+
+    await tester.tap(find.text('想法停不下来'));
+    await tester.pump();
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+
+    const choices = ['轻轻说话，或不必听懂的课程', '熟悉、平缓的音乐', '雨声、风声等环境声', '更喜欢安静，只要少量提示'];
+    expect(find.byType(SoftChoiceCard), findsNWidgets(4));
+    for (final choice in choices) {
+      expect(find.text(choice).hitTestable(), findsOneWidget);
+    }
+
+    final lastCard = find.widgetWithText(SoftChoiceCard, choices.last);
+    final continueButton = find.widgetWithText(FilledButton, '继续');
+    expect(
+      tester.getBottomRight(lastCard).dy,
+      lessThan(tester.getTopLeft(continueButton).dy),
+    );
   });
 
   testWidgets('已完成首次选择的用户直接看到低压力首页', (tester) async {
