@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../domain/sleep_history.dart';
 import '../../domain/stillow_models.dart';
 import '../../services/remote_audio_controller.dart';
 import '../../theme/stillow_theme.dart';
@@ -14,32 +15,43 @@ class PlayerScreen extends StatefulWidget {
     super.key,
     required this.session,
     required this.onSessionStarted,
+    required this.onSessionFinished,
     this.nightMode = false,
     this.autoStart = false,
     this.fallbackSession,
+    this.defaultSleepTimer = const Duration(minutes: 30),
   });
 
   final GuidedSession session;
-  final Future<void> Function(GuidedSession session) onSessionStarted;
+  final Future<void> Function(GuidedSession session, SleepUseContext context)
+  onSessionStarted;
+  final Future<void> Function(AppSleepSessionRecord record) onSessionFinished;
   final bool nightMode;
   final bool autoStart;
   final GuidedSession? fallbackSession;
+  final Duration? defaultSleepTimer;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen>
+    with WidgetsBindingObserver {
   late final RemoteAudioController _controller;
   late GuidedSession _activeSession;
   bool _recorded = false;
-  bool _openingPlatform = false;
-  bool _platformOpened = false;
-  String? _platformError;
+  bool _recordFinalized = false;
+  bool _settledSessionEnded = false;
+  DateTime? _sessionStartedAt;
+  String? _sessionRecordId;
+  DateTime? _playingSince;
+  Duration _listened = Duration.zero;
+  Timer? _checkpointTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _activeSession = widget.session;
     _controller = RemoteAudioController()..addListener(_refresh);
 
@@ -54,8 +66,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _refresh() {
+    _updateListeningTime();
     if (_controller.status == PlaybackStatus.playing && !_recorded) {
       unawaited(_recordStart());
+    }
+    if (_recorded &&
+        !_recordFinalized &&
+        (_controller.status == PlaybackStatus.complete ||
+            _controller.status == PlaybackStatus.idle)) {
+      _settledSessionEnded = true;
+      unawaited(_finalizeSessionRecord());
     }
     if (mounted) setState(() {});
   }
@@ -63,49 +83,91 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _recordStart() async {
     if (_recorded) return;
     _recorded = true;
-    await widget.onSessionStarted(_activeSession);
+    _recordFinalized = false;
+    _sessionStartedAt = DateTime.now();
+    _sessionRecordId =
+        '${_sessionStartedAt!.microsecondsSinceEpoch}-${_activeSession.id}';
+    _checkpointTimer?.cancel();
+    _checkpointTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      unawaited(_saveSessionCheckpoint());
+    });
+    await widget.onSessionStarted(
+      _activeSession,
+      widget.nightMode ? SleepUseContext.nightAwake : SleepUseContext.bedtime,
+    );
+  }
+
+  void _updateListeningTime() {
+    final now = DateTime.now();
+    if (_controller.status == PlaybackStatus.playing) {
+      _playingSince ??= now;
+      return;
+    }
+    final playingSince = _playingSince;
+    if (playingSince == null) return;
+    _listened += now.difference(playingSince);
+    _playingSince = null;
+  }
+
+  Future<void> _finalizeSessionRecord() async {
+    if (_recordFinalized || !_recorded || _sessionStartedAt == null) return;
+    _recordFinalized = true;
+    _checkpointTimer?.cancel();
+    _checkpointTimer = null;
+    final now = DateTime.now();
+    final playingSince = _playingSince;
+    if (playingSince != null) {
+      _listened += now.difference(playingSince);
+      _playingSince = null;
+    }
+    await _saveSessionCheckpoint(minimumSeconds: 1);
+  }
+
+  Future<void> _saveSessionCheckpoint({int minimumSeconds = 0}) async {
+    final startedAt = _sessionStartedAt;
+    final recordId = _sessionRecordId;
+    if (!_recorded || startedAt == null || recordId == null) return;
+    var listened = _listened;
+    final playingSince = _playingSince;
+    if (playingSince != null) {
+      listened += DateTime.now().difference(playingSince);
+    }
+    final seconds = listened.inSeconds < minimumSeconds
+        ? minimumSeconds
+        : listened.inSeconds;
+    if (seconds == 0) return;
+    await widget.onSessionFinished(
+      AppSleepSessionRecord(
+        id: recordId,
+        startedAt: startedAt,
+        sessionId: _activeSession.id,
+        sessionTitle: _activeSession.title,
+        context: widget.nightMode
+            ? SleepUseContext.nightAwake
+            : SleepUseContext.bedtime,
+        listenedSeconds: seconds,
+      ),
+    );
   }
 
   Future<void> _start() async {
-    if (_activeSession.isInAppAudio) {
-      await _controller.start(_activeSession);
-      return;
+    if (_recordFinalized) {
+      _recorded = false;
+      _recordFinalized = false;
+      _settledSessionEnded = false;
+      _sessionStartedAt = null;
+      _sessionRecordId = null;
+      _playingSince = null;
+      _listened = Duration.zero;
     }
-    await _openPlatform();
-  }
-
-  Future<void> _openPlatform() async {
-    if (_openingPlatform) return;
-    setState(() {
-      _openingPlatform = true;
-      _platformError = null;
-    });
-
-    var opened = await launchUrl(
-      _activeSession.playbackUrl,
-      mode: LaunchMode.externalApplication,
-    );
-    if (!opened) {
-      opened = await launchUrl(_activeSession.playbackUrl);
+    await _controller.start(_activeSession);
+    if (_controller.status != PlaybackStatus.error &&
+        widget.defaultSleepTimer != null) {
+      _controller.setSleepTimer(widget.defaultSleepTimer);
     }
-
-    if (opened) {
-      unawaited(_recordStart());
-    }
-    if (!mounted) return;
-    setState(() {
-      _openingPlatform = false;
-      _platformOpened = opened;
-      _platformError = opened ? null : '暂时没能打开平台，可以稍后再试。';
-    });
   }
 
   Future<void> _toggle() async {
-    if (!_activeSession.isInAppAudio) {
-      await _openPlatform();
-      return;
-    }
-
     switch (_controller.status) {
       case PlaybackStatus.idle:
       case PlaybackStatus.complete:
@@ -120,14 +182,61 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  Future<void> _openSource() async {
-    await launchUrl(
-      _activeSession.sourcePage,
-      mode: LaunchMode.externalApplication,
+  void _showCredits() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: StillowColors.surface,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('这段声音从哪里来', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Text(
+                _activeSession.sourceTitle,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${_activeSession.creator}\n${_activeSession.licenseName}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => launchUrl(
+                      _activeSession.sourcePage,
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                    label: const Text('查看来源'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => launchUrl(
+                      _activeSession.licenseUrl,
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.verified_outlined, size: 17),
+                    label: const Text('查看许可'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Future<void> _close() async {
+    await _finalizeSessionRecord();
     await _controller.stop();
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -136,9 +245,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _useFallback() async {
     final fallback = widget.fallbackSession;
     if (fallback == null) return;
+    await _finalizeSessionRecord();
     setState(() {
       _activeSession = fallback;
       _recorded = false;
+      _recordFinalized = false;
+      _settledSessionEnded = false;
+      _sessionStartedAt = null;
+      _sessionRecordId = null;
+      _playingSince = null;
+      _listened = Duration.zero;
     });
     await _start();
   }
@@ -192,6 +308,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    unawaited(_finalizeSessionRecord());
+    _checkpointTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_refresh);
     _controller.dispose();
     if (widget.nightMode) {
@@ -201,21 +320,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      unawaited(_saveSessionCheckpoint());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isInAppAudio = _activeSession.isInAppAudio;
-    final isComplete =
-        isInAppAudio && _controller.status == PlaybackStatus.complete;
-    final isPlaying = isInAppAudio && _controller.isPlaying;
-    final isLoading = isInAppAudio
-        ? _controller.status == PlaybackStatus.loading
-        : _openingPlatform;
-    final errorMessage = isInAppAudio
-        ? _controller.errorMessage
-        : _platformError;
+    final isComplete = _settledSessionEnded;
+    final isPlaying = _controller.isPlaying;
+    final isLoading = _controller.status == PlaybackStatus.loading;
+    final errorMessage = _controller.errorMessage;
 
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) unawaited(_controller.stop());
+        if (didPop) {
+          unawaited(_finalizeSessionRecord());
+          unawaited(_controller.stop());
+        }
       },
       child: Scaffold(
         body: StillowBackdrop(
@@ -255,7 +378,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 constraints: const BoxConstraints(maxWidth: 340),
                 child: Text(
                   isComplete
-                      ? '不用做什么。愿意的话，就让屏幕暗下去。'
+                      ? widget.nightMode
+                            ? '如果困意还在，就让屏幕暗下去。如果反而更清醒，可以到昏暗、安静的地方坐一会儿，困意回来再上床。'
+                            : '不用做什么。愿意的话，就让屏幕暗下去。'
                       : widget.nightMode
                       ? '不需要现在解决任何事情。把音量放得轻一点就好。'
                       : _activeSession.subtitle,
@@ -295,9 +420,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       : Icon(
                           isPlaying
                               ? Icons.pause_rounded
-                              : isInAppAudio
-                              ? Icons.play_arrow_rounded
-                              : Icons.open_in_new_rounded,
+                              : Icons.play_arrow_rounded,
                           size: 38,
                         ),
                   style: IconButton.styleFrom(
@@ -310,27 +433,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                isInAppAudio
-                    ? isPlaying
-                          ? '正在播放无广告音频'
-                          : '轻触播放'
-                    : _platformOpened
-                    ? '已转到 ${_activeSession.providerLabel}，轻触可再次打开'
-                    : '在 ${_activeSession.providerLabel} 官方页面播放',
+                isPlaying ? '正在播放无广告音频' : '轻触播放',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
-              if (isInAppAudio)
-                TextButton.icon(
-                  onPressed: _chooseSleepTimer,
-                  icon: const Icon(Icons.bedtime_outlined, size: 17),
-                  label: Text(
-                    _controller.sleepTimerEndsAt == null ? '设置淡出时间' : '已设置定时淡出',
-                  ),
-                ),
               TextButton.icon(
-                onPressed: _openSource,
+                onPressed: _chooseSleepTimer,
+                icon: const Icon(Icons.bedtime_outlined, size: 17),
+                label: Text(
+                  _controller.sleepTimerEndsAt == null ? '设置淡出时间' : '已设置定时淡出',
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _showCredits,
                 icon: const Icon(Icons.info_outline_rounded, size: 17),
                 label: Text(
                   '${_activeSession.creator} · ${_activeSession.licenseName}',

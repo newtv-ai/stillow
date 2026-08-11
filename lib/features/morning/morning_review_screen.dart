@@ -1,27 +1,39 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/sleep_history.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 import 'dream_interpretation_screen.dart';
 
-enum _MorningFeeling { rested, ordinary, tired }
-
 class MorningReviewScreen extends StatefulWidget {
-  const MorningReviewScreen({super.key});
+  const MorningReviewScreen({super.key, this.onFeelingSelected});
+
+  final Future<void> Function(MorningFeeling feeling)? onFeelingSelected;
 
   @override
   State<MorningReviewScreen> createState() => _MorningReviewScreenState();
 }
 
 class _MorningReviewScreenState extends State<MorningReviewScreen> {
-  _MorningFeeling? _feeling;
+  MorningFeeling? _feeling;
+  bool _saving = false;
+
+  Future<void> _choose(MorningFeeling feeling) async {
+    if (_saving) return;
+    setState(() {
+      _feeling = feeling;
+      _saving = widget.onFeelingSelected != null;
+    });
+    await widget.onFeelingSelected?.call(feeling);
+    if (mounted) setState(() => _saving = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final summary = switch (_feeling) {
-      _MorningFeeling.rested => '今天似乎恢复得还不错。',
-      _MorningFeeling.ordinary => '今天的恢复感比较普通。',
-      _MorningFeeling.tired => '昨晚似乎没有休息得很舒服。',
+      MorningFeeling.rested => '今天似乎恢复得还不错。',
+      MorningFeeling.ordinary => '今天的恢复感比较普通。',
+      MorningFeeling.tired => '昨晚似乎没有休息得很舒服。',
       null => null,
     };
 
@@ -56,20 +68,24 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
               children: [
                 _FeelingChip(
                   label: '挺有精神',
-                  selected: _feeling == _MorningFeeling.rested,
-                  onTap: () =>
-                      setState(() => _feeling = _MorningFeeling.rested),
+                  selected: _feeling == MorningFeeling.rested,
+                  onTap: () {
+                    _choose(MorningFeeling.rested);
+                  },
                 ),
                 _FeelingChip(
                   label: '还算普通',
-                  selected: _feeling == _MorningFeeling.ordinary,
-                  onTap: () =>
-                      setState(() => _feeling = _MorningFeeling.ordinary),
+                  selected: _feeling == MorningFeeling.ordinary,
+                  onTap: () {
+                    _choose(MorningFeeling.ordinary);
+                  },
                 ),
                 _FeelingChip(
                   label: '还是有点累',
-                  selected: _feeling == _MorningFeeling.tired,
-                  onTap: () => setState(() => _feeling = _MorningFeeling.tired),
+                  selected: _feeling == MorningFeeling.tired,
+                  onTap: () {
+                    _choose(MorningFeeling.tired);
+                  },
                 ),
               ],
             ),
@@ -92,7 +108,11 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '这是你此刻的主观感受，不是睡眠分数。当前版本不会保存这次选择。',
+                      widget.onFeelingSelected == null
+                          ? '这是你此刻的主观感受，不是睡眠分数。'
+                          : _saving
+                          ? '正在轻轻留在这台设备中…'
+                          : '这是主观感受，不是睡眠分数。已留在这台设备中，最多保留 30 天。',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],

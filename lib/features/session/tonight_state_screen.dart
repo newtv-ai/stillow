@@ -54,6 +54,18 @@ class TonightStateScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     SoftChoiceCard(
+                      title: '没想什么，只是还不困',
+                      icon: Icons.visibility_outlined,
+                      onTap: () => _select(context, NightState.notSleepy),
+                    ),
+                    const SizedBox(height: 12),
+                    SoftChoiceCard(
+                      title: '有点着急，越想睡越清醒',
+                      icon: Icons.hourglass_empty_rounded,
+                      onTap: () => _select(context, NightState.sleepPressure),
+                    ),
+                    const SizedBox(height: 12),
+                    SoftChoiceCard(
                       title: '身体还没松下来',
                       icon: Icons.spa_outlined,
                       onTap: () => _select(context, NightState.tenseBody),
@@ -63,6 +75,12 @@ class TonightStateScreen extends StatelessWidget {
                       title: '周围有点吵',
                       icon: Icons.water_drop_outlined,
                       onTap: () => _select(context, NightState.noisyRoom),
+                    ),
+                    const SizedBox(height: 12),
+                    SoftChoiceCard(
+                      title: '是夜里醒来后',
+                      icon: Icons.nights_stay_outlined,
+                      onTap: () => _select(context, NightState.nightAwake),
                     ),
                     const SizedBox(height: 12),
                     SoftChoiceCard(

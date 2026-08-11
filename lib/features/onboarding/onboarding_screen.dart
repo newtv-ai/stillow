@@ -5,9 +5,14 @@ import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key, required this.onComplete});
+  const OnboardingScreen({
+    super.key,
+    required this.onComplete,
+    this.initialProfile,
+  });
 
   final Future<void> Function(UserProfile profile) onComplete;
+  final UserProfile? initialProfile;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -20,12 +25,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   GuidancePreference? _guidancePreference;
   bool _saving = false;
 
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.initialProfile;
+    _supportNeed = profile?.supportNeed;
+    _soundPreference = profile?.soundPreference;
+    _guidancePreference = profile?.guidancePreference;
+  }
+
   Future<void> _finish() async {
     if (_saving) return;
     setState(() => _saving = true);
 
     await widget.onComplete(
-      UserProfile(
+      (widget.initialProfile ?? const UserProfile()).copyWith(
         onboardingComplete: true,
         supportNeed: _supportNeed ?? SupportNeed.quietMind,
         soundPreference: _soundPreference ?? SoundPreference.minimal,
@@ -68,7 +82,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const Spacer(),
                 TextButton(
                   onPressed: _saving ? null : _finish,
-                  child: const Text('先随便听听'),
+                  child: Text(widget.initialProfile == null ? '先随便听听' : '保留现在'),
                 ),
               ],
             ),
@@ -138,8 +152,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         choices: const [
           _Choice(
             value: SupportNeed.quietMind,
-            title: '让脑袋慢慢安静',
+            title: '想法停不下来',
             icon: Icons.cloud_outlined,
+          ),
+          _Choice(
+            value: SupportNeed.notSleepy,
+            title: '脑袋没想什么，但还不困',
+            icon: Icons.visibility_outlined,
+          ),
+          _Choice(
+            value: SupportNeed.sleepPressure,
+            title: '越想赶快睡，反而越清醒',
+            icon: Icons.hourglass_empty_rounded,
           ),
           _Choice(
             value: SupportNeed.relaxBody,
@@ -150,6 +174,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             value: SupportNeed.maskNoise,
             title: '把周围动静放远一点',
             icon: Icons.water_drop_outlined,
+          ),
+          _Choice(
+            value: SupportNeed.nightAwake,
+            title: '夜里醒来后，不容易再睡',
+            icon: Icons.nights_stay_outlined,
           ),
           _Choice(
             value: SupportNeed.gentleCompany,

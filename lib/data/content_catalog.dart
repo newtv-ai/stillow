@@ -75,12 +75,12 @@ class ContentCatalog {
         : (available.isNotEmpty ? available.first : null);
   }
 
-  GuidedSession byId(String? id, ContentRegion region) {
-    final available = sessionsFor(region);
-    return available.firstWhere(
-      (session) => session.id == id,
-      orElse: () => available.first,
-    );
+  GuidedSession? findById(String? id) {
+    if (id == null) return null;
+    for (final session in items) {
+      if (session.id == id) return session;
+    }
+    return null;
   }
 
   GuidedSession recommend(
@@ -88,6 +88,9 @@ class ContentCatalog {
     ContentRegion region, [
     NightState? state,
   ]) {
+    if (state == NightState.nightAwake) {
+      return recommendNightRescue(profile, region);
+    }
     final available = sessionsFor(region);
     if (available.isEmpty) {
       throw StateError('当前地区没有可用素材');
@@ -97,8 +100,10 @@ class ContentCatalog {
     final ranked =
         available
             .map(
-              (session) =>
-                  (session: session, score: _score(session, profile, goal)),
+              (session) => (
+                session: session,
+                score: _score(session, profile, goal, SleepUseContext.bedtime),
+              ),
             )
             .toList(growable: false)
           ..sort((a, b) => b.score.compareTo(a.score));
@@ -118,7 +123,12 @@ class ContentCatalog {
             .map(
               (session) => (
                 session: session,
-                score: _score(session, profile, _goalTag(profile, null)),
+                score: _score(
+                  session,
+                  profile,
+                  'night_awake',
+                  SleepUseContext.nightAwake,
+                ),
               ),
             )
             .toList(growable: false)
@@ -127,12 +137,13 @@ class ContentCatalog {
   }
 
   static GuidedSession _sessionFromJson(Map<String, dynamic> json) {
+    final kind = SessionKind.values.byName(_requiredString(json, 'kind'));
     return GuidedSession(
       id: _requiredString(json, 'id'),
       title: _requiredString(json, 'title'),
       subtitle: _requiredString(json, 'subtitle'),
       shortLabel: _requiredString(json, 'shortLabel'),
-      kind: SessionKind.values.byName(_requiredString(json, 'kind')),
+      kind: kind,
       tags: ((json['tags'] as List<dynamic>? ?? const []))
           .cast<String>()
           .toSet(),
@@ -161,6 +172,9 @@ class ContentCatalog {
       loop: json['loop'] as bool? ?? false,
       priority: json['priority'] as int? ?? 0,
       enabled: json['enabled'] as bool? ?? true,
+      languageCode:
+          json['languageCode'] as String? ??
+          (kind == SessionKind.lecture ? 'en' : 'zxx'),
       assetPath: json['assetPath'] as String?,
       sha256: json['sha256'] as String?,
       durationSeconds: json['durationSeconds'] as int?,
@@ -180,18 +194,42 @@ class ContentCatalog {
       NightState.tenseBody => 'relax_body',
       NightState.noisyRoom => 'mask_noise',
       NightState.busyMind => 'quiet_mind',
+      NightState.notSleepy => 'not_sleepy',
+      NightState.sleepPressure => 'sleep_pressure',
+      NightState.nightAwake => 'night_awake',
       NightState.unsure || null => switch (profile.supportNeed) {
         SupportNeed.relaxBody => 'relax_body',
         SupportNeed.maskNoise => 'mask_noise',
         SupportNeed.gentleCompany => 'gentle_company',
+        SupportNeed.notSleepy => 'not_sleepy',
+        SupportNeed.sleepPressure => 'sleep_pressure',
+        SupportNeed.nightAwake => 'night_awake',
         SupportNeed.quietMind || null => 'quiet_mind',
       },
     };
   }
 
-  static int _score(GuidedSession session, UserProfile profile, String goal) {
+  static int _score(
+    GuidedSession session,
+    UserProfile profile,
+    String goal,
+    SleepUseContext context,
+  ) {
     var score = session.priority;
     if (session.tags.contains(goal)) score += 100;
+    if (goal == 'not_sleepy') {
+      if (session.kind == SessionKind.lecture) score += 90;
+      if (session.kind == SessionKind.narrative) score += 55;
+      if (session.kind == SessionKind.guidedVoice) score -= 25;
+    }
+    if (goal == 'sleep_pressure') {
+      if (session.tags.contains('minimal')) score += 70;
+      if (session.tags.contains('guided')) score += 25;
+      if (session.kind == SessionKind.lecture) score -= 35;
+    }
+    if (goal == 'night_awake' && !session.tags.contains('night_awake')) {
+      score -= 120;
+    }
 
     score += switch (profile.soundPreference) {
       SoundPreference.softVoice => session.tags.contains('soft_voice') ? 28 : 0,
@@ -213,6 +251,15 @@ class ContentCatalog {
         profile.lastSessionId == session.id) {
       score -= 80;
     }
+    score += (profile.sessionAffinities[session.id] ?? 0) * 5;
+    score += (profile.tagAffinities['kind:${session.kind.name}'] ?? 0) * 3;
+    score +=
+        (profile.tagAffinities['context:${context.name}:kind:${session.kind.name}'] ??
+            0) *
+        5;
+    for (final tag in session.tags) {
+      score += (profile.tagAffinities[tag] ?? 0) * 3;
+    }
     return score;
   }
 }
@@ -223,4 +270,13 @@ abstract final class ContentRegionResolver {
         ? ContentRegion.mainlandChina
         : ContentRegion.international;
   }
+
+  static ContentRegion resolve(
+    RegionPreference preference,
+    ContentRegion deviceRegion,
+  ) => switch (preference) {
+    RegionPreference.automatic => deviceRegion,
+    RegionPreference.mainlandChina => ContentRegion.mainlandChina,
+    RegionPreference.international => ContentRegion.international,
+  };
 }

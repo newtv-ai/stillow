@@ -1,11 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stillow/app.dart';
 import 'package:stillow/data/content_catalog.dart';
-import 'package:stillow/data/preference_store.dart';
+import 'package:stillow/domain/sleep_history.dart';
 import 'package:stillow/domain/stillow_models.dart';
+import 'package:stillow/features/history/sleep_history_screen.dart';
 import 'package:stillow/features/morning/morning_review_screen.dart';
+import 'package:stillow/features/session/session_library_screen.dart';
+import 'package:stillow/services/offline_audio_store.dart';
 import 'package:stillow/theme/stillow_theme.dart';
+
+import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +31,15 @@ void main() {
         preferenceStore: store,
         catalog: catalog,
         region: ContentRegion.mainlandChina,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
       ),
     );
 
     expect(find.text('今晚，你更希望得到哪种陪伴？'), findsOneWidget);
     expect(find.text('先随便听听'), findsOneWidget);
 
-    await tester.tap(find.text('让脑袋慢慢安静'));
+    await tester.tap(find.text('想法停不下来'));
     await tester.pump();
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
@@ -64,11 +73,19 @@ void main() {
         preferenceStore: MemoryPreferenceStore(profile),
         catalog: catalog,
         region: ContentRegion.mainlandChina,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
       ),
     );
 
     expect(find.text('今晚先试试'), findsOneWidget);
-    expect(find.text('午夜海浪'), findsOneWidget);
+    expect(find.text('跟着身体扫描慢慢松开'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('听一段不必学会的课'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('听一段不必学会的课'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('夜里醒来时'),
       300,
@@ -80,8 +97,13 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('听一段不必学会的课'), findsOneWidget);
     expect(find.text('醒来以后'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('最近的夜晚'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('最近的夜晚'), findsOneWidget);
     expect(find.text('睡眠分数'), findsNothing);
   });
 
@@ -116,5 +138,90 @@ void main() {
     expect(find.text('空间与内心角落'), findsOneWidget);
     expect(find.textContaining('仅供休闲娱乐'), findsOneWidget);
     expect(find.textContaining('退出后不保存'), findsOneWidget);
+  });
+
+  testWidgets('素材库可搜索、显示离线状态并收藏', (tester) async {
+    final directory = Directory.systemTemp.createTempSync(
+      'stillow_library_test_',
+    );
+    final offlineStore = OfflineAudioStore(
+      directoryProvider: () async => directory,
+    );
+    addTearDown(() {
+      offlineStore.dispose();
+      if (directory.existsSync()) directory.deleteSync(recursive: true);
+    });
+    String? favoriteId;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: StillowTheme.dark,
+        home: SessionLibraryScreen(
+          sessions: catalog.sessionsFor(ContentRegion.mainlandChina),
+          favoriteSessionIds: const {},
+          onFavoriteChanged: (sessionId) async => favoriteId = sessionId,
+          offlineAudioStore: offlineStore,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '星野');
+    await tester.pumpAndSettle();
+
+    expect(find.text('慢慢漂过星野'), findsOneWidget);
+    expect(find.text('离线可用'), findsOneWidget);
+    await tester.tap(find.byTooltip('收藏'));
+    await tester.pump();
+    expect(favoriteId, 'music-starfield');
+    expect(find.byTooltip('取消收藏'), findsOneWidget);
+  });
+
+  testWidgets('睡眠历史只展示记录走势，不生成质量评分', (tester) async {
+    final now = DateTime.now();
+    final historyStore = MemorySleepHistoryStore(
+      SleepHistorySnapshot(
+        appSessions: [
+          AppSleepSessionRecord(
+            id: 'session-1',
+            startedAt: now.subtract(const Duration(hours: 9)),
+            sessionId: 'rain',
+            sessionTitle: '轻雨',
+            context: SleepUseContext.bedtime,
+            listenedSeconds: 1200,
+          ),
+        ],
+        healthSamples: [
+          HealthSleepSample(
+            id: 'health-1',
+            startedAt: now.subtract(const Duration(hours: 8)),
+            endedAt: now,
+            stage: HealthSleepStage.session,
+          ),
+        ],
+        lastHealthSyncAt: now,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: StillowTheme.dark,
+        home: SleepHistoryScreen(
+          historyStore: historyStore,
+          healthGateway: MemorySleepHealthGateway(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('睡眠记录时段走势'), findsOneWidget);
+    expect(find.textContaining('不是睡眠质量分数'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('轻雨'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('轻雨'), findsOneWidget);
+    expect(find.text('睡眠质量评分'), findsNothing);
   });
 }

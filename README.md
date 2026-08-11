@@ -1,64 +1,115 @@
 # Stillow
 
-Stillow 是一个面向 Android 与 iOS 的低压力个性化助眠陪伴 App。它不要求用户完成睡眠任务，也不展示睡眠分数；当前原型优先验证轻量选择、温和推荐、引导播放和夜醒一键体验。
+<img src="assets/branding/stillow-app-icon.png" alt="Stillow app icon" width="128">
 
-## 当前已实现
+Stillow is a low-pressure, personalized sleep companion for Android and iOS. It offers calm audio, lightweight on-device preference learning, a one-tap night-waking mode, and optional read-only sleep history from Apple Health or Health Connect. It does not score, diagnose, or pressure people to sleep.
 
-- 三屏、可跳过的首次偏好选择；
-- 本地保存用户偏好；
-- 无分数、无打卡的低亮度首页；
-- 可选的“今晚更像哪一种”轻量状态；
-- 可解释的内容推荐规则；
-- 从 JSON 素材目录读取内容、来源、授权和地区信息；
-- 公共领域/CC0 素材随 App 打包，国内外都能无广告播放；
-- 支持本地与无广告 HTTPS 直连音频、暂停和循环，不依赖平台页面；
-- 3 条离线课程和 68 条国际在线课程章节（合计约 24.2 小时），在线失败可切换离线课程；
-- Android/iOS 后台播放、锁屏与耳机控制；
-- 15/30/45/60 分钟定时与最后 30 秒淡出；
-- YouTube、哔哩哔哩等链接只保留为候选来源，默认禁用，不抓取音频；
-- 不显示时间的夜醒一键入口；
-- 下一次打开 App 时出现的可选轻触反馈；
-- 无分数、无留存的晨间回顾与本地娱乐梦境解析；
-- Android 与 iOS 工程骨架。
+Stillow 是一个面向 Android 与 iOS 的低压力个性化助眠陪伴 App。它不要求打卡或完成睡眠任务，也不把设备记录包装成医学睡眠评分。
 
-当前共有 75 条可播放内容：棕噪音、雨声、海浪、鸟鸣 4 条环境声，3 条离线公共领域课程，以及国际地区可用的 68 条无广告直连课程章节。健康数据、历史睡眠曲线、远程目录服务和可穿戴设备连接器尚未接入；相关数据范围需要在具体方案另行确认后开发。
+## Current status / 当前状态
 
-素材清单位于 [`assets/content/audio_catalog.json`](assets/content/audio_catalog.json)。每条内容包含来源、授权、地区、`adFree` 和 `rightsStatus`；推荐层只接受无广告且属于公共领域/CC0 的启用素材。
+Stillow is a functional alpha. The principal app flows, local persistence, audio playback, offline downloads, automated tests, and Android builds are working. Physical-device HealthKit/Health Connect validation, store review, and the first signed public release are still pending.
 
-## 本地运行
+当前已可完整体验主要流程，但仍属于功能 Alpha。Android 构建和自动化测试可用；健康数据真机授权、iOS 真机构建、商店审核与首个正式签名 Release 尚待完成。
+
+## What is implemented / 已实现
+
+- Three short, skippable onboarding choices using warm, non-clinical language.
+- Bedtime states for racing thoughts, being calm but not sleepy, sleep pressure, body tension, noise, night waking, and uncertainty.
+- Persistent on-device personalization that learns separately from bedtime and night-waking feedback.
+- A JSON-maintained audio catalog with source, creator, license, region, checksum, and duration metadata.
+- 98 enabled sessions: ambient sound, music, guided relaxation, public-domain readings, and intentionally low-stimulation lectures.
+- 16 bundled audio files (about 78.5 MB) plus 82 direct HTTPS audio entries.
+- Mainland China and international catalog selection without YouTube or Bilibili playback.
+- Search, categories, favorites, offline downloads, per-item removal, and a configurable night-waking preset.
+- In-app ad-free playback, pause/resume, looping, background playback, lock-screen controls, and 15/30/45/60-minute fade-out timers. Playback starts with a 30-minute timer by default, or 10 minutes in night-waking mode.
+- A night-waking flow that hides the clock, starts a familiar preset with minimal interaction, and offers a gentle leave-the-bed hint only after playback ends.
+- Morning subjective check-ins without scores.
+- Local entertainment-only dream interpretation; dream text is not persisted.
+- Up to 30 days of app-use and morning-feeling history with per-night and full history deletion.
+- Optional, user-initiated, read-only Apple Health / Health Connect sleep sync.
+- Sleep-window trends and stage timelines that are explicitly presented as records, not quality scores.
+- In-app update and release-note links that point only to [GitHub Releases](https://github.com/newtv-ai/stillow/releases).
+
+## Local-only data / 仅本地数据
+
+Stillow has no account, website, analytics service, app backend, or cloud sync. Preferences, personalization weights, app-use history, downloaded audio, and normalized health sleep intervals stay in the app's private local storage.
+
+- Android backup and device-transfer extraction are disabled.
+- The private Stillow data directory is excluded from iOS backup.
+- Uninstalling the app or changing devices does not restore these records.
+- Dream text is held only on the current screen and is never written to storage.
+- Health access is requested only after the user explicitly connects it from the history screen.
+- Users can remove individual local nights, all local sleep history, downloaded items, or cached health data.
+
+## Health data boundaries / 健康数据边界
+
+- Read only: sleep sessions and sleep stages.
+- Not requested: heart rate, HRV, background health reads, extended history, or write access.
+- Sync window: up to the most recent 30 days, foreground only.
+- Stored locally: normalized start/end times and stage names.
+- Not stored: source device names, raw health UUIDs, device identifiers, heart rate, or HRV.
+
+Android app support begins at API 26 (Android 8.0). Health Connect availability depends on the Android version and device services. The iOS deployment target is iOS 14.
+
+## Audio and licensing / 音频与许可
+
+The catalog is maintained in [`assets/content/audio_catalog.json`](assets/content/audio_catalog.json). Every catalog item currently enabled for playback is ad-free, plays inside Stillow, and has one of the accepted rights states. Platform pages and ad-skipping techniques are not part of the playback path.
+
+Each item retains its source, creator, rights status, and license link, all visible from the player. Audio and other third-party content are **not** relicensed under the repository's Apache-2.0 software license; their individual terms are recorded on each catalog entry. Bundled material includes public-domain, CC0, CC BY, CC BY-SA, and United States federal-government public-domain works.
+
+## Run locally / 本地运行
+
+Prerequisites:
+
+- Flutter 3.41 or a compatible stable release.
+- Android SDK with API 36 for Android builds.
+- Xcode on macOS for iOS builds and HealthKit capability validation.
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-## 验证
+## Android release signing / Android 正式签名
+
+Release builds never fall back to the Android debug key. Supply one stable, privately retained keystore through environment variables:
+
+```text
+STILLOW_KEYSTORE_PATH
+STILLOW_KEYSTORE_PASSWORD
+STILLOW_KEY_ALIAS
+STILLOW_KEY_PASSWORD
+```
+
+Release tasks fail immediately if any of these values is missing, which prevents an unsigned or debug-signed build from being mistaken for a publishable artifact.
+
+Then build the artifacts for a GitHub Release:
+
+```bash
+flutter build appbundle --release
+flutter build apk --release --split-per-abi
+```
+
+Keep the same keystore for every future Android upgrade. Losing it prevents compatible signed updates. Keystores and passwords must never be committed.
+
+## Verification / 验证
 
 ```bash
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
-flutter test
+flutter test --coverage
 flutter build apk --debug
 ```
 
-## 目录
+The automated suite covers recommendations, regional catalogs, asset assumptions, local preference persistence, offline downloads, dream boundaries, 30-day retention, nap-safe health aggregation, health-record minimization, and core widgets.
 
-```text
-assets/audio/   已核验并随 App 打包的无广告音频
-assets/content/ JSON 音频素材与梦境主题目录
-lib/
-  data/        本地偏好存储、素材目录读取与推荐
-  domain/      用户偏好、会话与推荐模型
-  features/    首次选择、首页、会话、播放器、夜醒、晨间与梦境
-  services/    音频播放控制与本地梦境解析
-  theme/       低压力深色设计系统
-  widgets/     共用视觉组件
-```
+## Medical boundary / 医疗边界
 
-## 当前定位
+Stillow is not a medical device and is not intended to diagnose or treat insomnia or other sleep disorders. It keeps formal screening away from the ordinary bedtime flow. After repeated “no help” feedback, it offers a gentle explanation of when professional support may be useful, without assigning a diagnosis.
 
-Stillow 当前是体验原型，不用于诊断或治疗睡眠疾病，也不会根据问卷推断用户的具体脑区或神经活动。
+Repeated breathing pauses, waking while gasping, or daytime sleepiness that affects driving should be discussed with a qualified professional rather than handled only through the app.
 
-## 开源许可
+## License
 
-仓库目前公开用于早期协作与验证，正式开源许可证尚待项目维护者确认。在许可证确定前，公开源代码不代表额外授予复制、修改或再分发权利。
+Stillow source code is licensed under [Apache License 2.0](LICENSE). Audio, artwork derived from third-party material, and catalogued content remain under the individual terms recorded with each item and are not covered by Apache-2.0 unless explicitly stated.

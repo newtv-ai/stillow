@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/content_catalog.dart';
+import '../../data/sleep_history_store.dart';
+import '../../domain/sleep_history.dart';
 import '../../domain/stillow_models.dart';
+import '../../services/offline_audio_store.dart';
+import '../../services/sleep_health_gateway.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 import '../night/night_rescue_screen.dart';
+import '../onboarding/onboarding_screen.dart';
+import '../history/sleep_history_screen.dart';
 import '../morning/morning_review_screen.dart';
 import '../player/player_screen.dart';
+import '../privacy/data_privacy_screen.dart';
 import '../session/session_library_screen.dart';
 import '../session/tonight_state_screen.dart';
 
@@ -16,23 +24,46 @@ class HomeScreen extends StatelessWidget {
     required this.profile,
     required this.catalog,
     required this.region,
+    required this.offlineAudioStore,
     required this.onSessionStarted,
     required this.onFeedback,
+    required this.onFavoriteChanged,
+    required this.onRegionPreferenceChanged,
+    required this.onNightPresetChanged,
+    required this.onProfileChanged,
+    required this.onSessionFinished,
+    required this.onMorningFeeling,
+    required this.sleepHistoryStore,
+    required this.sleepHealthGateway,
   });
 
   final UserProfile profile;
   final ContentCatalog catalog;
   final ContentRegion region;
-  final Future<void> Function(GuidedSession session) onSessionStarted;
+  final OfflineAudioStore offlineAudioStore;
+  final Future<void> Function(GuidedSession session, SleepUseContext context)
+  onSessionStarted;
   final Future<void> Function(SessionFeedback feedback) onFeedback;
+  final Future<void> Function(String sessionId) onFavoriteChanged;
+  final Future<void> Function(RegionPreference preference)
+  onRegionPreferenceChanged;
+  final Future<void> Function(GuidedSession session) onNightPresetChanged;
+  final Future<void> Function(UserProfile profile) onProfileChanged;
+  final Future<void> Function(AppSleepSessionRecord record) onSessionFinished;
+  final Future<void> Function(MorningFeeling feeling) onMorningFeeling;
+  final SleepHistoryStore sleepHistoryStore;
+  final SleepHealthGateway sleepHealthGateway;
 
-  Future<void> _openPlayer(BuildContext context, GuidedSession session) {
-    return Navigator.of(context).push(
+  Future<void> _openPlayer(BuildContext context, GuidedSession session) async {
+    final playableSession = await offlineAudioStore.resolve(session);
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
-          session: session,
+          session: playableSession,
           fallbackSession: catalog.offlineFallbackFor(session, region),
           onSessionStarted: onSessionStarted,
+          onSessionFinished: onSessionFinished,
         ),
       ),
     );
@@ -58,7 +89,7 @@ class HomeScreen extends StatelessWidget {
                       const Spacer(),
                       IconButton(
                         onPressed: () => _showAbout(context),
-                        tooltip: '关于 Stillow',
+                        tooltip: '设置与关于 Stillow',
                         icon: const Icon(Icons.more_horiz_rounded),
                         color: StillowColors.linenMuted,
                       ),
@@ -107,7 +138,11 @@ class HomeScreen extends StatelessWidget {
                   ),
                   if (profile.pendingFeedback) ...[
                     const SizedBox(height: 28),
-                    _FeedbackCard(onFeedback: onFeedback),
+                    _FeedbackCard(
+                      onFeedback: onFeedback,
+                      nightAwake:
+                          profile.lastUseContext == SleepUseContext.nightAwake,
+                    ),
                   ],
                   if (profile.noHelpCount >= 4) ...[
                     const SizedBox(height: 14),
@@ -121,13 +156,16 @@ class HomeScreen extends StatelessWidget {
                   _QuietAction(
                     icon: Icons.grid_view_rounded,
                     title: '看看其他陪伴',
-                    subtitle: '人声引导、雨声、海浪和低沉噪音',
+                    subtitle: '搜索、分类、收藏，或把在线声音留到设备里',
                     onTap: () async {
                       final session = await Navigator.of(context)
                           .push<GuidedSession>(
                             MaterialPageRoute<GuidedSession>(
                               builder: (_) => SessionLibraryScreen(
                                 sessions: catalog.sessionsFor(region),
+                                favoriteSessionIds: profile.favoriteSessionIds,
+                                onFavoriteChanged: onFavoriteChanged,
+                                offlineAudioStore: offlineAudioStore,
                               ),
                             ),
                           );
@@ -140,13 +178,16 @@ class HomeScreen extends StatelessWidget {
                   _QuietAction(
                     icon: Icons.school_outlined,
                     title: '听一段不必学会的课',
-                    subtitle: '地质、气象与物理旧版讲读，放在远处听就好',
+                    subtitle: '中文科普、地质、气象与物理讲读，放在远处听就好',
                     onTap: () async {
                       final session = await Navigator.of(context)
                           .push<GuidedSession>(
                             MaterialPageRoute<GuidedSession>(
                               builder: (_) => SessionLibraryScreen(
                                 sessions: catalog.coursesFor(region),
+                                favoriteSessionIds: profile.favoriteSessionIds,
+                                onFavoriteChanged: onFavoriteChanged,
+                                offlineAudioStore: offlineAudioStore,
                                 title: '听一段\n不必学会的课',
                                 subtitle: '内容平直、没有测验。听不懂也完全没关系。',
                               ),
@@ -168,7 +209,12 @@ class HomeScreen extends StatelessWidget {
                           profile: profile,
                           catalog: catalog,
                           region: region,
+                          offlineAudioStore: offlineAudioStore,
+                          favoriteSessionIds: profile.favoriteSessionIds,
+                          onFavoriteChanged: onFavoriteChanged,
+                          onNightPresetChanged: onNightPresetChanged,
                           onSessionStarted: onSessionStarted,
+                          onSessionFinished: onSessionFinished,
                         ),
                       ),
                     ),
@@ -180,7 +226,23 @@ class HomeScreen extends StatelessWidget {
                     subtitle: '看看此刻的恢复感，或者轻松聊聊昨晚的梦',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => const MorningReviewScreen(),
+                        builder: (_) => MorningReviewScreen(
+                          onFeelingSelected: onMorningFeeling,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _QuietAction(
+                    icon: Icons.insights_outlined,
+                    title: '最近的夜晚',
+                    subtitle: '回顾本地记录，或主动连接手表与系统睡眠数据',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => SleepHistoryScreen(
+                          historyStore: sleepHistoryStore,
+                          healthGateway: sleepHealthGateway,
+                        ),
                       ),
                     ),
                   ),
@@ -205,9 +267,9 @@ class HomeScreen extends StatelessWidget {
       context: context,
       backgroundColor: StillowColors.surface,
       showDragHandle: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 30),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -226,12 +288,103 @@ class HomeScreen extends StatelessWidget {
                   '更适合先找专业人士确认。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
+                const SizedBox(height: 22),
+                Text('素材区域', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(
+                  '自动模式会跟随设备地区；也可以手动切换，随时改回来。',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preference in RegionPreference.values)
+                      ChoiceChip(
+                        selected: profile.regionPreference == preference,
+                        label: Text(switch (preference) {
+                          RegionPreference.automatic =>
+                            region == ContentRegion.mainlandChina
+                                ? '自动 · 国内'
+                                : '自动 · 国际',
+                          RegionPreference.mainlandChina => '国内素材',
+                          RegionPreference.international => '国际素材',
+                        }),
+                        onSelected: (_) async {
+                          await onRegionPreferenceChanged(preference);
+                          if (context.mounted) Navigator.of(context).pop();
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (editContext) => OnboardingScreen(
+                          initialProfile: profile,
+                          onComplete: (updated) async {
+                            await onProfileChanged(updated);
+                            if (editContext.mounted) {
+                              Navigator.of(editContext).pop();
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.tune_rounded),
+                  label: const Text('调整陪伴偏好'),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            DataPrivacyScreen(historyStore: sleepHistoryStore),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.privacy_tip_outlined),
+                  label: const Text('数据与隐私'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _openExternal(
+                    context,
+                    Uri.parse(
+                      'https://github.com/newtv-ai/stillow/releases/latest',
+                    ),
+                  ),
+                  icon: const Icon(Icons.system_update_alt_rounded),
+                  label: const Text('查看最新版本'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _openExternal(
+                    context,
+                    Uri.parse('https://github.com/newtv-ai/stillow/releases'),
+                  ),
+                  icon: const Icon(Icons.notes_rounded),
+                  label: const Text('版本与更新说明'),
+                ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _openExternal(BuildContext context, Uri url) async {
+    final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂时没能打开 GitHub，可以稍后再试。')));
+    }
   }
 }
 
@@ -434,9 +587,10 @@ class _GentleSupportCard extends StatelessWidget {
 }
 
 class _FeedbackCard extends StatefulWidget {
-  const _FeedbackCard({required this.onFeedback});
+  const _FeedbackCard({required this.onFeedback, required this.nightAwake});
 
   final Future<void> Function(SessionFeedback feedback) onFeedback;
+  final bool nightAwake;
 
   @override
   State<_FeedbackCard> createState() => _FeedbackCardState();
@@ -465,26 +619,29 @@ class _FeedbackCardState extends State<_FeedbackCard> {
         children: [
           Text('有空的时候，告诉我们', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 4),
-          Text('上次那段陪伴感觉怎么样？', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            widget.nightAwake ? '夜醒后的那段陪伴呢？' : '上次那段陪伴感觉怎么样？',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _FeedbackChip(
-                label: '挺舒服的',
+                label: widget.nightAwake ? '比较容易安静下来' : '挺舒服的',
                 onTap: _saving
                     ? null
                     : () => _choose(SessionFeedback.comfortable),
               ),
               _FeedbackChip(
-                label: '没什么区别',
+                label: '没有明显区别',
                 onTap: _saving
                     ? null
                     : () => _choose(SessionFeedback.noDifference),
               ),
               _FeedbackChip(
-                label: '不太适合',
+                label: widget.nightAwake ? '反而更清醒' : '不太适合',
                 onTap: _saving ? null : () => _choose(SessionFeedback.notForMe),
               ),
             ],
