@@ -1,18 +1,38 @@
 import 'package:flutter/material.dart';
 
-enum SupportNeed { quietMind, relaxBody, maskNoise, gentleCompany }
+enum SupportNeed {
+  quietMind,
+  notSleepy,
+  sleepPressure,
+  relaxBody,
+  maskNoise,
+  nightAwake,
+  gentleCompany,
+}
 
 enum SoundPreference { softVoice, familiarMusic, nature, minimal }
 
 enum GuidancePreference { stepByStep, occasional, ambientOnly }
 
-enum NightState { busyMind, tenseBody, noisyRoom, unsure }
+enum NightState {
+  busyMind,
+  notSleepy,
+  sleepPressure,
+  tenseBody,
+  noisyRoom,
+  nightAwake,
+  unsure,
+}
 
 enum SessionFeedback { comfortable, noDifference, notForMe }
 
 enum ContentRegion { mainlandChina, international }
 
-enum PlaybackType { assetAudio, directAudio, platformPage }
+enum RegionPreference { automatic, mainlandChina, international }
+
+enum SleepUseContext { bedtime, nightAwake }
+
+enum PlaybackType { assetAudio, directAudio }
 
 enum SessionKind {
   guidedVoice,
@@ -21,6 +41,7 @@ enum SessionKind {
   ocean,
   forest,
   music,
+  narrative,
   lecture,
 }
 
@@ -31,10 +52,15 @@ class UserProfile {
     this.soundPreference,
     this.guidancePreference,
     this.lastSessionId,
+    this.lastUseContext = SleepUseContext.bedtime,
     this.pendingFeedback = false,
     this.lastFeedback,
-    this.sessionCount = 0,
     this.noHelpCount = 0,
+    this.tagAffinities = const {},
+    this.sessionAffinities = const {},
+    this.favoriteSessionIds = const {},
+    this.regionPreference = RegionPreference.automatic,
+    this.nightPresetSessionId,
   });
 
   final bool onboardingComplete;
@@ -42,10 +68,15 @@ class UserProfile {
   final SoundPreference? soundPreference;
   final GuidancePreference? guidancePreference;
   final String? lastSessionId;
+  final SleepUseContext lastUseContext;
   final bool pendingFeedback;
   final SessionFeedback? lastFeedback;
-  final int sessionCount;
   final int noHelpCount;
+  final Map<String, int> tagAffinities;
+  final Map<String, int> sessionAffinities;
+  final Set<String> favoriteSessionIds;
+  final RegionPreference regionPreference;
+  final String? nightPresetSessionId;
 
   UserProfile copyWith({
     bool? onboardingComplete,
@@ -53,10 +84,15 @@ class UserProfile {
     SoundPreference? soundPreference,
     GuidancePreference? guidancePreference,
     String? lastSessionId,
+    SleepUseContext? lastUseContext,
     bool? pendingFeedback,
     SessionFeedback? lastFeedback,
-    int? sessionCount,
     int? noHelpCount,
+    Map<String, int>? tagAffinities,
+    Map<String, int>? sessionAffinities,
+    Set<String>? favoriteSessionIds,
+    RegionPreference? regionPreference,
+    String? nightPresetSessionId,
   }) {
     return UserProfile(
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -64,12 +100,69 @@ class UserProfile {
       soundPreference: soundPreference ?? this.soundPreference,
       guidancePreference: guidancePreference ?? this.guidancePreference,
       lastSessionId: lastSessionId ?? this.lastSessionId,
+      lastUseContext: lastUseContext ?? this.lastUseContext,
       pendingFeedback: pendingFeedback ?? this.pendingFeedback,
       lastFeedback: lastFeedback ?? this.lastFeedback,
-      sessionCount: sessionCount ?? this.sessionCount,
       noHelpCount: noHelpCount ?? this.noHelpCount,
+      tagAffinities: tagAffinities ?? this.tagAffinities,
+      sessionAffinities: sessionAffinities ?? this.sessionAffinities,
+      favoriteSessionIds: favoriteSessionIds ?? this.favoriteSessionIds,
+      regionPreference: regionPreference ?? this.regionPreference,
+      nightPresetSessionId: nightPresetSessionId ?? this.nightPresetSessionId,
     );
   }
+
+  UserProfile learnFrom(
+    GuidedSession session,
+    SessionFeedback feedback, {
+    SleepUseContext context = SleepUseContext.bedtime,
+  }) {
+    final tagDelta = switch (feedback) {
+      SessionFeedback.comfortable => 2,
+      SessionFeedback.noDifference => -1,
+      SessionFeedback.notForMe => -2,
+    };
+    final sessionDelta = switch (feedback) {
+      SessionFeedback.comfortable => 3,
+      SessionFeedback.noDifference => -1,
+      SessionFeedback.notForMe => -4,
+    };
+
+    final learnedTags = <String>{
+      'kind:${session.kind.name}',
+      ...session.tags.where(_isLearnableTag),
+    };
+    final nextTagAffinities = Map<String, int>.from(tagAffinities);
+    for (final tag in learnedTags) {
+      nextTagAffinities[tag] = ((nextTagAffinities[tag] ?? 0) + tagDelta)
+          .clamp(-8, 8)
+          .toInt();
+    }
+    final contextualKind = 'context:${context.name}:kind:${session.kind.name}';
+    nextTagAffinities[contextualKind] =
+        ((nextTagAffinities[contextualKind] ?? 0) + tagDelta)
+            .clamp(-8, 8)
+            .toInt();
+
+    final nextSessionAffinities = Map<String, int>.from(sessionAffinities);
+    nextSessionAffinities[session.id] =
+        ((nextSessionAffinities[session.id] ?? 0) + sessionDelta)
+            .clamp(-12, 12)
+            .toInt();
+
+    return copyWith(
+      tagAffinities: Map.unmodifiable(nextTagAffinities),
+      sessionAffinities: Map.unmodifiable(nextSessionAffinities),
+    );
+  }
+
+  static bool _isLearnableTag(String tag) => !const {
+    'quiet_mind',
+    'relax_body',
+    'mask_noise',
+    'gentle_company',
+    'night_awake',
+  }.contains(tag);
 }
 
 class GuidedSession {
@@ -94,6 +187,8 @@ class GuidedSession {
     required this.loop,
     required this.priority,
     required this.enabled,
+    this.languageCode = 'zxx',
+    this.localFilePath,
     this.assetPath,
     this.sha256,
     this.durationSeconds,
@@ -119,6 +214,8 @@ class GuidedSession {
   final bool loop;
   final int priority;
   final bool enabled;
+  final String languageCode;
+  final String? localFilePath;
   final String? assetPath;
   final String? sha256;
   final int? durationSeconds;
@@ -127,17 +224,55 @@ class GuidedSession {
       playbackType == PlaybackType.assetAudio ||
       playbackType == PlaybackType.directAudio;
 
+  bool get isAvailableOffline =>
+      playbackType == PlaybackType.assetAudio || localFilePath != null;
+
   bool get isPlaybackEligible =>
       enabled &&
       adFree &&
-      (rightsStatus == 'publicDomain' || rightsStatus == 'cc0') &&
+      const {
+        'publicDomain',
+        'cc0',
+        'ccBy',
+        'ccBySa',
+        'usGovernmentPublicDomain',
+      }.contains(rightsStatus) &&
       isInAppAudio;
 
+  GuidedSession withLocalFile(String path) => GuidedSession(
+    id: id,
+    title: title,
+    subtitle: subtitle,
+    shortLabel: shortLabel,
+    kind: kind,
+    tags: tags,
+    regions: regions,
+    provider: provider,
+    playbackType: playbackType,
+    playbackUrl: playbackUrl,
+    adFree: adFree,
+    rightsStatus: rightsStatus,
+    sourcePage: sourcePage,
+    sourceTitle: sourceTitle,
+    creator: creator,
+    licenseName: licenseName,
+    licenseUrl: licenseUrl,
+    loop: loop,
+    priority: priority,
+    enabled: enabled,
+    languageCode: languageCode,
+    localFilePath: path,
+    assetPath: assetPath,
+    sha256: sha256,
+    durationSeconds: durationSeconds,
+  );
+
   String get providerLabel => switch (provider) {
-    'bilibili' => '哔哩哔哩',
-    'youtube' => 'YouTube',
     'internetArchive' => 'Internet Archive',
     'librivox' => 'LibriVox',
+    'openGameArt' => 'OpenGameArt',
+    'wikimediaCommons' => 'Wikimedia Commons',
+    'usDepartmentVeteransAffairs' => '美国退伍军人事务部',
     _ => provider,
   };
 
@@ -148,6 +283,7 @@ class GuidedSession {
     SessionKind.ocean => Icons.waves_rounded,
     SessionKind.forest => Icons.forest_outlined,
     SessionKind.music => Icons.music_note_rounded,
+    SessionKind.narrative => Icons.auto_stories_outlined,
     SessionKind.lecture => Icons.school_outlined,
   };
 }

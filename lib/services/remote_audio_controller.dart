@@ -24,11 +24,9 @@ class RemoteAudioController extends ChangeNotifier {
   DateTime? sleepTimerEndsAt;
 
   bool get isPlaying => status == PlaybackStatus.playing;
-  bool get hasStarted => status != PlaybackStatus.idle;
-
   Future<void> start(GuidedSession nextSession) async {
     if (!nextSession.isInAppAudio) {
-      throw ArgumentError('平台页面素材不能交给直连音频播放器');
+      throw ArgumentError('不支持的素材不能交给音频播放器');
     }
 
     session = nextSession;
@@ -48,7 +46,11 @@ class RemoteAudioController extends ChangeNotifier {
             ? null
             : Duration(seconds: nextSession.durationSeconds!),
       );
-      if (nextSession.playbackType == PlaybackType.assetAudio) {
+      if (nextSession.localFilePath case final localFilePath?) {
+        await _player.setAudioSource(
+          AudioSource.file(localFilePath, tag: mediaItem),
+        );
+      } else if (nextSession.playbackType == PlaybackType.assetAudio) {
         final assetPath = nextSession.assetPath;
         if (assetPath == null || assetPath.isEmpty) {
           throw const FormatException('本地素材缺少 assetPath');
@@ -121,13 +123,18 @@ class RemoteAudioController extends ChangeNotifier {
     _sleepTimer?.cancel();
     _sleepTimer = null;
     sleepTimerEndsAt = null;
-    await _player.setVolume(1);
     await _player.stop();
+    await _player.setVolume(1);
     status = PlaybackStatus.idle;
     notifyListeners();
   }
 
   void _handlePlayerState(PlayerState playerState) {
+    if (playerState.processingState == ProcessingState.completed) {
+      _sleepTimer?.cancel();
+      _sleepTimer = null;
+      sleepTimerEndsAt = null;
+    }
     status = switch (playerState.processingState) {
       ProcessingState.loading ||
       ProcessingState.buffering => PlaybackStatus.loading,

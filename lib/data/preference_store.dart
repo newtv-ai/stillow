@@ -1,105 +1,107 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../domain/stillow_models.dart';
+import '../services/private_local_storage.dart';
 
 abstract interface class PreferenceStore {
   Future<UserProfile> load();
+
   Future<void> save(UserProfile profile);
 }
 
-class SharedPreferencesStore implements PreferenceStore {
-  static const _onboardingKey = 'onboarding_complete';
-  static const _supportNeedKey = 'support_need';
-  static const _soundPreferenceKey = 'sound_preference';
-  static const _guidancePreferenceKey = 'guidance_preference';
-  static const _lastSessionKey = 'last_session';
-  static const _pendingFeedbackKey = 'pending_feedback';
-  static const _lastFeedbackKey = 'last_feedback';
-  static const _sessionCountKey = 'session_count';
-  static const _noHelpCountKey = 'no_help_count';
+class LocalPreferenceStore implements PreferenceStore {
+  LocalPreferenceStore({PrivateDirectoryProvider? directoryProvider})
+    : _file = PrivateJsonFile(
+        'preferences.json',
+        directoryProvider: directoryProvider,
+      );
+
+  final PrivateJsonFile _file;
 
   @override
-  Future<UserProfile> load() async {
-    final preferences = await SharedPreferences.getInstance();
-
-    return UserProfile(
-      onboardingComplete: preferences.getBool(_onboardingKey) ?? false,
-      supportNeed: _enumByName(
-        SupportNeed.values,
-        preferences.getString(_supportNeedKey),
-      ),
-      soundPreference: _enumByName(
-        SoundPreference.values,
-        preferences.getString(_soundPreferenceKey),
-      ),
-      guidancePreference: _enumByName(
-        GuidancePreference.values,
-        preferences.getString(_guidancePreferenceKey),
-      ),
-      lastSessionId: preferences.getString(_lastSessionKey),
-      pendingFeedback: preferences.getBool(_pendingFeedbackKey) ?? false,
-      lastFeedback: _enumByName(
-        SessionFeedback.values,
-        preferences.getString(_lastFeedbackKey),
-      ),
-      sessionCount: preferences.getInt(_sessionCountKey) ?? 0,
-      noHelpCount: preferences.getInt(_noHelpCountKey) ?? 0,
-    );
-  }
+  Future<UserProfile> load() async => _profileFromJson(await _file.read());
 
   @override
-  Future<void> save(UserProfile profile) async {
-    final preferences = await SharedPreferences.getInstance();
-
-    await Future.wait([
-      preferences.setBool(_onboardingKey, profile.onboardingComplete),
-      _setOptional(preferences, _supportNeedKey, profile.supportNeed?.name),
-      _setOptional(
-        preferences,
-        _soundPreferenceKey,
-        profile.soundPreference?.name,
-      ),
-      _setOptional(
-        preferences,
-        _guidancePreferenceKey,
-        profile.guidancePreference?.name,
-      ),
-      _setOptional(preferences, _lastSessionKey, profile.lastSessionId),
-      preferences.setBool(_pendingFeedbackKey, profile.pendingFeedback),
-      _setOptional(preferences, _lastFeedbackKey, profile.lastFeedback?.name),
-      preferences.setInt(_sessionCountKey, profile.sessionCount),
-      preferences.setInt(_noHelpCountKey, profile.noHelpCount),
-    ]);
-  }
-
-  static T? _enumByName<T extends Enum>(List<T> values, String? name) {
-    if (name == null) return null;
-    for (final value in values) {
-      if (value.name == name) return value;
-    }
-    return null;
-  }
-
-  static Future<bool> _setOptional(
-    SharedPreferences preferences,
-    String key,
-    String? value,
-  ) {
-    if (value == null) return preferences.remove(key);
-    return preferences.setString(key, value);
-  }
+  Future<void> save(UserProfile profile) =>
+      _file.write(_profileToJson(profile));
 }
 
-class MemoryPreferenceStore implements PreferenceStore {
-  MemoryPreferenceStore([this.profile = const UserProfile()]);
+Map<String, Object?> _profileToJson(UserProfile profile) => {
+  'version': 2,
+  'onboardingComplete': profile.onboardingComplete,
+  'supportNeed': profile.supportNeed?.name,
+  'soundPreference': profile.soundPreference?.name,
+  'guidancePreference': profile.guidancePreference?.name,
+  'lastSessionId': profile.lastSessionId,
+  'lastUseContext': profile.lastUseContext.name,
+  'pendingFeedback': profile.pendingFeedback,
+  'lastFeedback': profile.lastFeedback?.name,
+  'noHelpCount': profile.noHelpCount,
+  'tagAffinities': profile.tagAffinities,
+  'sessionAffinities': profile.sessionAffinities,
+  'favoriteSessionIds': profile.favoriteSessionIds.toList()..sort(),
+  'regionPreference': profile.regionPreference.name,
+  'nightPresetSessionId': profile.nightPresetSessionId,
+};
 
-  UserProfile profile;
+UserProfile _profileFromJson(Object? value) {
+  if (value is! Map) return const UserProfile();
+  final json = Map<String, dynamic>.from(value);
+  return UserProfile(
+    onboardingComplete: json['onboardingComplete'] == true,
+    supportNeed: _enumByName(
+      SupportNeed.values,
+      json['supportNeed'] as String?,
+    ),
+    soundPreference: _enumByName(
+      SoundPreference.values,
+      json['soundPreference'] as String?,
+    ),
+    guidancePreference: _enumByName(
+      GuidancePreference.values,
+      json['guidancePreference'] as String?,
+    ),
+    lastSessionId: json['lastSessionId'] as String?,
+    lastUseContext:
+        _enumByName(
+          SleepUseContext.values,
+          json['lastUseContext'] as String?,
+        ) ??
+        SleepUseContext.bedtime,
+    pendingFeedback: json['pendingFeedback'] == true,
+    lastFeedback: _enumByName(
+      SessionFeedback.values,
+      json['lastFeedback'] as String?,
+    ),
+    noHelpCount: (json['noHelpCount'] as num?)?.toInt().clamp(0, 1000) ?? 0,
+    tagAffinities: _decodeAffinities(json['tagAffinities']),
+    sessionAffinities: _decodeAffinities(json['sessionAffinities']),
+    favoriteSessionIds: Set.unmodifiable(
+      (json['favoriteSessionIds'] as List? ?? const []).whereType<String>(),
+    ),
+    regionPreference:
+        _enumByName(
+          RegionPreference.values,
+          json['regionPreference'] as String?,
+        ) ??
+        RegionPreference.automatic,
+    nightPresetSessionId: json['nightPresetSessionId'] as String?,
+  );
+}
 
-  @override
-  Future<UserProfile> load() async => profile;
-
-  @override
-  Future<void> save(UserProfile profile) async {
-    this.profile = profile;
+Map<String, int> _decodeAffinities(Object? value) {
+  if (value is! Map) return const {};
+  final result = <String, int>{};
+  for (final entry in value.entries) {
+    if (entry.key is! String || entry.value is! num) continue;
+    final score = (entry.value as num).toInt().clamp(-100, 100);
+    if (score != 0) result[entry.key as String] = score;
   }
+  return Map.unmodifiable(result);
+}
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  if (name == null) return null;
+  for (final value in values) {
+    if (value.name == name) return value;
+  }
+  return null;
 }
