@@ -29,6 +29,7 @@ Stillow is a functional alpha. The principal app flows, local persistence, audio
 - Up to 30 days of app-use and morning-feeling history with per-night and full history deletion.
 - Optional, user-initiated, read-only Apple Health / Health Connect sleep sync.
 - Sleep-window trends and stage timelines that are explicitly presented as records, not quality scores.
+- An optional, non-scored, non-persisted four-question sleep review after repeated “no help” feedback, with a gentle professional-support suggestion based on duration, frequency, daytime impact, and sleep opportunity.
 - In-app update and release-note links that point only to [GitHub Releases](https://github.com/newtv-ai/stillow/releases).
 
 ## Local-only data / 仅本地数据
@@ -106,7 +107,7 @@ The automated suite covers recommendations, regional catalogs, asset assumptions
 
 ## Medical boundary / 医疗边界
 
-Stillow is not a medical device and is not intended to diagnose or treat insomnia or other sleep disorders. It keeps formal screening away from the ordinary bedtime flow. After repeated “no help” feedback, it offers a gentle explanation of when professional support may be useful, without assigning a diagnosis.
+Stillow is not a medical device and is not intended to diagnose or treat insomnia or other sleep disorders. It keeps formal screening away from the ordinary bedtime flow. After repeated “no help” feedback, the user may open a non-scored review of duration, frequency, daytime impact, and sleep opportunity. It suggests when professional support may be useful without assigning a diagnosis or storing the answers. A licensed Chinese clinical scale remains subject to separate authorization and professional review.
 
 Repeated breathing pauses, waking while gasping, or daytime sleepiness that affects driving should be discussed with a qualified professional rather than handled only through the app.
 

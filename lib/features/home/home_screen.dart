@@ -17,6 +17,7 @@ import '../player/player_screen.dart';
 import '../privacy/data_privacy_screen.dart';
 import '../session/session_library_screen.dart';
 import '../session/tonight_state_screen.dart';
+import '../support/sleep_support_review_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -539,48 +540,15 @@ class _GentleSupportCard extends StatelessWidget {
           if (showProfessional) ...[
             const SizedBox(height: 12),
             TextButton(
-              onPressed: () => _showProfessionalHelp(context),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SleepSupportReviewScreen(),
+                ),
+              ),
               child: const Text('我想了解一下'),
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  void _showProfessionalHelp(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: StillowColors.surface,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '这不是考试，也不会给你贴标签。',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'App 没帮上忙本身不能证明是慢性失眠。如果入睡或夜醒困难持续较久、经常发生，并已经影响白天状态，找医生或睡眠专业人士聊聊会更合适。',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '如果经常憋醒、喘醒、被观察到呼吸暂停，或白天困倦已经影响驾驶安全，不用继续等 App 调整，尽早就医确认。',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '正式睡眠量表会在完成中文版授权与专业审核后提供；当前版本不会用自制问卷替代诊断。',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
