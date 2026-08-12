@@ -187,6 +187,7 @@ class GuidedSession {
     required this.loop,
     required this.priority,
     required this.enabled,
+    this.isCandidate = false,
     this.languageCode = 'zxx',
     this.localFilePath,
     this.assetPath,
@@ -214,6 +215,7 @@ class GuidedSession {
   final bool loop;
   final int priority;
   final bool enabled;
+  final bool isCandidate;
   final String languageCode;
   final String? localFilePath;
   final String? assetPath;
@@ -260,6 +262,7 @@ class GuidedSession {
     loop: loop,
     priority: priority,
     enabled: enabled,
+    isCandidate: isCandidate,
     languageCode: languageCode,
     localFilePath: path,
     assetPath: assetPath,

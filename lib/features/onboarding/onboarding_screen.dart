@@ -160,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return switch (_step) {
       0 => _ChoiceStep<SupportNeed>(
         title: '今晚，你更希望得到哪种陪伴？',
-        subtitle: '没有标准答案，只选最接近此刻的感受。',
+        subtitle: '凭第一感觉，选最接近此刻的一项。',
         value: _supportNeed,
         compact: compact,
         onChanged: (value) => setState(() => _supportNeed = value),
@@ -204,14 +204,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
       1 => _ChoiceStep<SoundPreference>(
         title: '什么声音会让你舒服一些？',
-        subtitle: '以后随时可以换，不需要现在就确定。',
+        subtitle: '先选此刻更喜欢的声音，之后随时可以更换。',
         value: _soundPreference,
         compact: compact,
         onChanged: (value) => setState(() => _soundPreference = value),
         choices: const [
           _Choice(
             value: SoundPreference.softVoice,
-            title: '轻轻说话，或不必听懂的课程',
+            title: '轻柔的人声或中文朗读',
             icon: Icons.graphic_eq_rounded,
           ),
           _Choice(
@@ -233,7 +233,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
       _ => _ChoiceStep<GuidancePreference>(
         title: '你喜欢怎样的陪伴？',
-        subtitle: '不喜欢被指导，也完全没关系。',
+        subtitle: '选择更喜欢的陪伴程度。',
         value: _guidancePreference,
         compact: compact,
         onChanged: (value) => setState(() => _guidancePreference = value),
@@ -250,7 +250,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           _Choice(
             value: GuidancePreference.ambientOnly,
-            title: '不要指导，让声音陪着就好',
+            title: '只听声音，保持安静',
             icon: Icons.air_rounded,
           ),
         ],

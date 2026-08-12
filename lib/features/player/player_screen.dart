@@ -371,6 +371,8 @@ class _PlayerScreenState extends State<PlayerScreen>
               Text(
                 isComplete ? '声音已经慢慢停下' : _activeSession.title,
                 textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 12),
@@ -380,9 +382,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                   isComplete
                       ? widget.nightMode
                             ? '如果困意还在，就让屏幕暗下去。如果反而更清醒，可以到昏暗、安静的地方坐一会儿，困意回来再上床。'
-                            : '不用做什么。愿意的话，就让屏幕暗下去。'
+                            : '声音停在这里。让屏幕暗下来，继续休息。'
                       : widget.nightMode
-                      ? '不需要现在解决任何事情。把音量放得轻一点就好。'
+                      ? '把音量放轻，让声音留在背景里。'
                       : _activeSession.subtitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -433,7 +435,13 @@ class _PlayerScreenState extends State<PlayerScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                isPlaying ? '正在播放无广告音频' : '轻触播放',
+                isPlaying
+                    ? _activeSession.isCandidate
+                          ? '正在播放无广告候选音频'
+                          : '正在播放无广告音频'
+                    : _activeSession.isCandidate
+                    ? '轻触试听'
+                    : '轻触播放',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),

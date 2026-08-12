@@ -65,7 +65,7 @@ class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '随便写几个还记得的画面就好，不用完整。',
+                    '写下几个还记得的画面、人物或感受。',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 24),

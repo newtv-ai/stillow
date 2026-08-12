@@ -39,7 +39,7 @@ class TonightStateScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '不用仔细分析，选最接近的就好。',
+              '凭第一感觉，选最接近的一项。',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 18),

@@ -45,7 +45,7 @@ void main() {
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('轻轻说话，或不必听懂的课程'));
+    await tester.tap(find.text('轻柔的人声或中文朗读'));
     await tester.pump();
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
@@ -55,7 +55,7 @@ void main() {
     await tester.tap(find.text('今晚先试试'));
     await tester.pumpAndSettle();
 
-    expect(find.text('今晚不用完成\n任何任务。'), findsOneWidget);
+    expect(find.text('今晚，\n慢一点。'), findsOneWidget);
     expect(store.profile.onboardingComplete, isTrue);
     expect(store.profile.supportNeed, SupportNeed.quietMind);
   });
@@ -84,7 +84,7 @@ void main() {
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
 
-    const choices = ['轻轻说话，或不必听懂的课程', '熟悉、平缓的音乐', '雨声、风声等环境声', '更喜欢安静，只要少量提示'];
+    const choices = ['轻柔的人声或中文朗读', '熟悉、平缓的音乐', '雨声、风声等环境声', '更喜欢安静，只要少量提示'];
     expect(find.byType(SoftChoiceCard), findsNWidgets(4));
     for (final choice in choices) {
       expect(find.text(choice).hitTestable(), findsOneWidget);
@@ -101,7 +101,7 @@ void main() {
   testWidgets('已完成首次选择的用户直接看到低压力首页', (tester) async {
     final profile = const UserProfile(
       onboardingComplete: true,
-      supportNeed: SupportNeed.relaxBody,
+      supportNeed: SupportNeed.quietMind,
       soundPreference: SoundPreference.softVoice,
       guidancePreference: GuidancePreference.stepByStep,
     );
@@ -118,31 +118,27 @@ void main() {
     );
 
     expect(find.text('今晚先试试'), findsOneWidget);
-    expect(find.text('跟着身体扫描慢慢松开'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('听一段不必学会的课'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('听一段不必学会的课'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('夜里醒来时'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('夜里醒来时'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('醒来以后'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('醒来以后'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('最近的夜晚'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('最近的夜晚'), findsOneWidget);
+    expect(find.text('长篇女声朗读：《城市之光》'), findsOneWidget);
+    Future<void> scrollToHomeAction(String label) async {
+      for (var attempt = 0; attempt < 12; attempt++) {
+        final target = find.text(label);
+        if (target.evaluate().isNotEmpty) {
+          await tester.ensureVisible(target);
+          await tester.pumpAndSettle();
+          expect(target, findsOneWidget);
+          return;
+        }
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -240));
+        await tester.pumpAndSettle();
+      }
+      fail('没有找到首页入口：$label');
+    }
+
+    await scrollToHomeAction('试听候选声音');
+    await scrollToHomeAction('听一段舒缓人声');
+    await scrollToHomeAction('夜里醒来时');
+    await scrollToHomeAction('醒来以后');
+    await scrollToHomeAction('最近的夜晚');
     expect(find.text('睡眠分数'), findsNothing);
   });
 
@@ -205,15 +201,49 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), '星野');
+    await tester.enterText(find.byType(TextField), '夜色');
     await tester.pumpAndSettle();
 
-    expect(find.text('慢慢漂过星野'), findsOneWidget);
+    expect(find.text('静静铺开的夜色'), findsOneWidget);
     expect(find.text('离线可用'), findsOneWidget);
     await tester.tap(find.byTooltip('收藏'));
     await tester.pump();
-    expect(favoriteId, 'music-starfield');
+    expect(favoriteId, 'music-contemplation');
     expect(find.byTooltip('取消收藏'), findsOneWidget);
+  });
+
+  testWidgets('候选素材在独立列表中明确标记为待试听', (tester) async {
+    final directory = Directory.systemTemp.createTempSync(
+      'stillow_candidate_library_test_',
+    );
+    final offlineStore = OfflineAudioStore(
+      directoryProvider: () async => directory,
+    );
+    addTearDown(() {
+      offlineStore.dispose();
+      if (directory.existsSync()) directory.deleteSync(recursive: true);
+    });
+    final candidate = catalog
+        .candidateSessionsFor(ContentRegion.mainlandChina)
+        .first;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: StillowTheme.dark,
+        home: SessionLibraryScreen(
+          sessions: [candidate],
+          favoriteSessionIds: const {},
+          onFavoriteChanged: (_) async {},
+          offlineAudioStore: offlineStore,
+          title: '候选声音',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('待试听'), findsOneWidget);
+    expect(find.text('在线'), findsOneWidget);
+    expect(find.byTooltip('下载到设备'), findsOneWidget);
   });
 
   testWidgets('睡眠历史只展示记录走势，不生成质量评分', (tester) async {

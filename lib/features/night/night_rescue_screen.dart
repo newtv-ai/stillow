@@ -77,7 +77,7 @@ class _NightRescueScreenState extends State<NightRescueScreen> {
           onFavoriteChanged: widget.onFavoriteChanged,
           offlineAudioStore: widget.offlineAudioStore,
           title: '夜里醒来时\n默认放哪一段',
-          subtitle: '只选一段此刻不排斥的；以后随时可以换。',
+          subtitle: '选一段熟悉的声音，之后仍可更换。',
         ),
       ),
     );
@@ -131,10 +131,10 @@ class _NightRescueScreenState extends State<NightRescueScreen> {
               icon: Icons.nights_stay_outlined,
             ),
             const SizedBox(height: 40),
-            Text('不用看时间。', style: Theme.of(context).textTheme.headlineMedium),
+            Text('夜里醒来了。', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 12),
             Text(
-              '也不用现在弄清为什么醒来。',
+              '先让身体和注意力慢慢落稳。',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,

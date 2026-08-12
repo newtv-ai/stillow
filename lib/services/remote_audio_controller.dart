@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import '../domain/stillow_models.dart';
+import 'progressive_loop_volume.dart';
 
 enum PlaybackStatus { idle, loading, playing, paused, complete, error }
 
@@ -12,11 +13,19 @@ class RemoteAudioController extends ChangeNotifier {
   RemoteAudioController({AudioPlayer? player})
     : _player = player ?? AudioPlayer() {
     _playerSubscription = _player.playerStateStream.listen(_handlePlayerState);
+    _positionSubscription = _player.positionStream.listen(_handlePosition);
   }
 
   final AudioPlayer _player;
+  static const _loopVolume = ProgressiveLoopVolume();
   late final StreamSubscription<PlayerState> _playerSubscription;
+  late final StreamSubscription<Duration> _positionSubscription;
   Timer? _sleepTimer;
+  Duration _previousPosition = Duration.zero;
+  int _completedMusicLoops = 0;
+  double _loopGain = 1;
+  double _fadeGain = 1;
+  bool _attenuateMusicLoops = false;
 
   PlaybackStatus status = PlaybackStatus.idle;
   GuidedSession? session;
@@ -30,12 +39,18 @@ class RemoteAudioController extends ChangeNotifier {
     }
 
     session = nextSession;
+    _previousPosition = Duration.zero;
+    _completedMusicLoops = 0;
+    _loopGain = 1;
+    _fadeGain = 1;
+    _attenuateMusicLoops =
+        nextSession.loop && nextSession.kind == SessionKind.music;
     errorMessage = null;
     status = PlaybackStatus.loading;
     notifyListeners();
 
     try {
-      await _player.setVolume(1);
+      await _applyVolume();
       await _player.setLoopMode(nextSession.loop ? LoopMode.one : LoopMode.off);
       final mediaItem = MediaItem(
         id: nextSession.id,
@@ -94,7 +109,8 @@ class RemoteAudioController extends ChangeNotifier {
     _sleepTimer?.cancel();
     _sleepTimer = null;
     sleepTimerEndsAt = duration == null ? null : DateTime.now().add(duration);
-    unawaited(_player.setVolume(1));
+    _fadeGain = 1;
+    unawaited(_applyVolume());
     notifyListeners();
     if (duration == null) return;
 
@@ -112,8 +128,10 @@ class RemoteAudioController extends ChangeNotifier {
         return;
       }
       if (remaining <= const Duration(seconds: 30)) {
-        final volume = (remaining.inMilliseconds / 30000).clamp(0.0, 1.0);
-        unawaited(_player.setVolume(volume));
+        _fadeGain = (remaining.inMilliseconds / 30000)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        unawaited(_applyVolume());
       }
       notifyListeners();
     });
@@ -124,9 +142,30 @@ class RemoteAudioController extends ChangeNotifier {
     _sleepTimer = null;
     sleepTimerEndsAt = null;
     await _player.stop();
-    await _player.setVolume(1);
+    _previousPosition = Duration.zero;
+    _completedMusicLoops = 0;
+    _loopGain = 1;
+    _fadeGain = 1;
+    _attenuateMusicLoops = false;
+    await _applyVolume();
     status = PlaybackStatus.idle;
     notifyListeners();
+  }
+
+  void _handlePosition(Duration position) {
+    if (_attenuateMusicLoops &&
+        status == PlaybackStatus.playing &&
+        ProgressiveLoopVolume.didPositionWrap(_previousPosition, position)) {
+      _completedMusicLoops++;
+      _loopGain = _loopVolume.gainForCompletedLoops(_completedMusicLoops);
+      unawaited(_applyVolume());
+    }
+    _previousPosition = position;
+  }
+
+  Future<void> _applyVolume() {
+    final volume = (_loopGain * _fadeGain).clamp(0.0, 1.0).toDouble();
+    return _player.setVolume(volume);
   }
 
   void _handlePlayerState(PlayerState playerState) {
@@ -157,6 +196,7 @@ class RemoteAudioController extends ChangeNotifier {
   void dispose() {
     _sleepTimer?.cancel();
     unawaited(_playerSubscription.cancel());
+    unawaited(_positionSubscription.cancel());
     unawaited(_player.dispose());
     super.dispose();
   }

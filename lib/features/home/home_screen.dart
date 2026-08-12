@@ -73,6 +73,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final recommendation = catalog.recommend(profile, region);
+    final candidateSessions = catalog.candidateSessionsFor(region);
 
     return Scaffold(
       body: StillowBackdrop(
@@ -98,12 +99,12 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 44),
                   Text(
-                    '今晚不用完成\n任何任务。',
+                    '今晚，\n慢一点。',
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '只选一种此刻觉得舒服的陪伴。',
+                    '选一段此刻喜欢的声音。',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: StillowColors.linenMuted,
                     ),
@@ -175,22 +176,50 @@ class HomeScreen extends StatelessWidget {
                       }
                     },
                   ),
+                  if (candidateSessions.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _QuietAction(
+                      icon: Icons.science_outlined,
+                      title: '试听候选声音',
+                      subtitle:
+                          '${candidateSessions.length} 段公开候选，需要联网，听感仍在筛选中',
+                      onTap: () async {
+                        final session = await Navigator.of(context)
+                            .push<GuidedSession>(
+                              MaterialPageRoute<GuidedSession>(
+                                builder: (_) => SessionLibraryScreen(
+                                  sessions: candidateSessions,
+                                  favoriteSessionIds:
+                                      profile.favoriteSessionIds,
+                                  onFavoriteChanged: onFavoriteChanged,
+                                  offlineAudioStore: offlineAudioStore,
+                                  title: '候选声音\n试听列表',
+                                  subtitle: '可以搜索、收藏，或下载到设备后慢慢听。',
+                                ),
+                              ),
+                            );
+                        if (session != null && context.mounted) {
+                          await _openPlayer(context, session);
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _QuietAction(
-                    icon: Icons.school_outlined,
-                    title: '听一段不必学会的课',
-                    subtitle: '中文科普、地质、气象与物理讲读，放在远处听就好',
+                    icon: Icons.record_voice_over_outlined,
+                    title: '听一段舒缓人声',
+                    subtitle: '长篇中文女声、短篇散文与轻声科普',
                     onTap: () async {
                       final session = await Navigator.of(context)
                           .push<GuidedSession>(
                             MaterialPageRoute<GuidedSession>(
                               builder: (_) => SessionLibraryScreen(
-                                sessions: catalog.coursesFor(region),
+                                sessions: catalog.spokenFor(region),
                                 favoriteSessionIds: profile.favoriteSessionIds,
                                 onFavoriteChanged: onFavoriteChanged,
                                 offlineAudioStore: offlineAudioStore,
-                                title: '听一段\n不必学会的课',
-                                subtitle: '内容平直、没有测验。听不懂也完全没关系。',
+                                title: '舒缓人声',
+                                subtitle: '选择更喜欢的音色和篇幅。',
                               ),
                             ),
                           );
@@ -278,10 +307,7 @@ class HomeScreen extends StatelessWidget {
               children: [
                 const StillowWordmark(),
                 const SizedBox(height: 20),
-                Text(
-                  '不催你睡，只陪你慢慢安静。',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                Text('陪你慢慢安静。', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
                 Text(
                   'Stillow 当前是体验原型，不用于诊断或治疗睡眠疾病。'
@@ -534,7 +560,7 @@ class _GentleSupportCard extends StatelessWidget {
           Text(
             showProfessional
                 ? '如果已经多次尝试仍没帮助，可以选择了解什么时候值得找专业人士聊聊。'
-                : '看来最近试过的声音没有明显帮助。可以从人声换到自然声，或反过来；不用勉强坚持。',
+                : '最近试过的声音帮助有限，可以在人声、音乐和自然声之间换一种感受。',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           if (showProfessional) ...[

@@ -41,7 +41,7 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                considerProfessional ? '值得请专业人士一起看看' : '暂时不用急着给它贴标签',
+                considerProfessional ? '值得请专业人士一起看看' : '先继续观察一段时间',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
@@ -65,7 +65,7 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
               ],
               const SizedBox(height: 12),
               Text(
-                '如果经常憋醒、喘醒、被观察到呼吸暂停，或困倦已经影响驾驶安全，不用等待这个回顾的结果，请尽早就医确认。',
+                '如果经常憋醒、喘醒、被观察到呼吸暂停，或困倦已经影响驾驶安全，请尽早就医确认。',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),

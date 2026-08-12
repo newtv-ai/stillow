@@ -15,7 +15,7 @@ class SessionLibraryScreen extends StatefulWidget {
     required this.onFavoriteChanged,
     required this.offlineAudioStore,
     this.title = '换一种\n舒服的方式',
-    this.subtitle = '不用坚持一种方法。',
+    this.subtitle = '可以按此刻的感觉更换。',
   });
 
   final List<GuidedSession> sessions;
@@ -293,7 +293,7 @@ class _SessionLibraryScreenState extends State<SessionLibraryScreen> {
     _LibraryFilter.ambient => '环境声',
     _LibraryFilter.music => '音乐',
     _LibraryFilter.voice => '人声',
-    _LibraryFilter.courses => '课程',
+    _LibraryFilter.courses => '科普',
     _LibraryFilter.offline => '已离线',
   };
 }
@@ -352,6 +352,8 @@ class _LibraryCard extends StatelessWidget {
                   children: [
                     Text(
                       session.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 5),
@@ -366,6 +368,11 @@ class _LibraryCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
+                        if (session.isCandidate)
+                          const _SmallLabel(
+                            icon: Icons.rate_review_outlined,
+                            text: '待试听',
+                          ),
                         _SmallLabel(
                           icon: isDownloaded
                               ? Icons.offline_pin_outlined

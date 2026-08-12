@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:stillow/data/content_catalog.dart';
+import 'package:stillow/domain/stillow_models.dart';
 import 'package:stillow/services/offline_audio_store.dart';
 
 void main() {
@@ -23,8 +23,7 @@ void main() {
   });
 
   test('在线直连音频可下载、离线解析并按单条移除', () async {
-    final catalog = await ContentCatalog.loadAsset();
-    final session = catalog.findById('narrative-selborne-01')!;
+    final session = _directAudioSession();
     final client = MockClient((_) async {
       return http.Response.bytes(
         List<int>.generate(32 * 1024, (index) => index % 251),
@@ -55,8 +54,7 @@ void main() {
   });
 
   test('下载失败不会留下半截文件', () async {
-    final catalog = await ContentCatalog.loadAsset();
-    final session = catalog.findById('narrative-selborne-01')!;
+    final session = _directAudioSession();
     final store = OfflineAudioStore(
       client: MockClient((_) async => http.Response('unavailable', 503)),
       directoryProvider: () async => temporaryDirectory,
@@ -69,3 +67,28 @@ void main() {
     store.dispose();
   });
 }
+
+GuidedSession _directAudioSession() => GuidedSession(
+  id: 'online-test-audio',
+  title: '测试音频',
+  subtitle: '测试下载流程',
+  shortLabel: '测试',
+  kind: SessionKind.narrative,
+  tags: const {'narrative'},
+  regions: const {ContentRegion.international},
+  provider: 'testProvider',
+  playbackType: PlaybackType.directAudio,
+  playbackUrl: Uri.parse('https://example.com/audio.mp3'),
+  adFree: true,
+  rightsStatus: 'cc0',
+  sourcePage: Uri.parse('https://example.com/source'),
+  sourceTitle: 'Test source',
+  creator: 'Test creator',
+  licenseName: 'CC0 1.0',
+  licenseUrl: Uri.parse('https://creativecommons.org/publicdomain/zero/1.0/'),
+  loop: false,
+  priority: 1,
+  enabled: true,
+  languageCode: 'en',
+  durationSeconds: 30,
+);

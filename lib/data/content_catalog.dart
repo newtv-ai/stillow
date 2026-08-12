@@ -8,19 +8,32 @@ class ContentCatalog {
   ContentCatalog({
     required this.schemaVersion,
     required List<GuidedSession> items,
-  }) : items = List.unmodifiable(items);
+    List<GuidedSession> candidates = const [],
+  }) : items = List.unmodifiable(items),
+       candidates = List.unmodifiable(candidates);
 
   final int schemaVersion;
   final List<GuidedSession> items;
+  final List<GuidedSession> candidates;
 
   static Future<ContentCatalog> loadAsset({
     String path = 'assets/content/audio_catalog.json',
+    String candidatePath = 'assets/content/audio_candidates.json',
   }) async {
-    final jsonText = await rootBundle.loadString(path);
-    return ContentCatalog.fromJsonString(jsonText);
+    final jsonTexts = await Future.wait([
+      rootBundle.loadString(path),
+      rootBundle.loadString(candidatePath),
+    ]);
+    return ContentCatalog.fromJsonString(
+      jsonTexts[0],
+      candidateJsonText: jsonTexts[1],
+    );
   }
 
-  factory ContentCatalog.fromJsonString(String jsonText) {
+  factory ContentCatalog.fromJsonString(
+    String jsonText, {
+    String? candidateJsonText,
+  }) {
     final root = jsonDecode(jsonText) as Map<String, dynamic>;
     final rawItems = root['items'] as List<dynamic>? ?? const [];
     final items = rawItems
@@ -31,9 +44,14 @@ class ContentCatalog {
       throw const FormatException('音频素材目录不能为空');
     }
 
+    final candidates = candidateJsonText == null
+        ? const <GuidedSession>[]
+        : _candidateSessionsFromJson(candidateJsonText);
+
     return ContentCatalog(
       schemaVersion: root['schemaVersion'] as int? ?? 1,
       items: items,
+      candidates: candidates,
     );
   }
 
@@ -52,6 +70,28 @@ class ContentCatalog {
   List<GuidedSession> coursesFor(ContentRegion region) => sessionsFor(
     region,
   ).where((session) => session.kind == SessionKind.lecture).toList();
+
+  List<GuidedSession> spokenFor(ContentRegion region) => sessionsFor(region)
+      .where(
+        (session) => const {
+          SessionKind.guidedVoice,
+          SessionKind.narrative,
+          SessionKind.lecture,
+        }.contains(session.kind),
+      )
+      .toList();
+
+  List<GuidedSession> candidateSessionsFor(ContentRegion region) {
+    final result =
+        candidates
+            .where(
+              (item) =>
+                  item.isPlaybackEligible && item.regions.contains(region),
+            )
+            .toList(growable: false)
+          ..sort((a, b) => b.priority.compareTo(a.priority));
+    return result;
+  }
 
   List<GuidedSession> ambientFor(ContentRegion region) => sessionsFor(
     region,
@@ -77,7 +117,7 @@ class ContentCatalog {
 
   GuidedSession? findById(String? id) {
     if (id == null) return null;
-    for (final session in items) {
+    for (final session in [...items, ...candidates]) {
       if (session.id == id) return session;
     }
     return null;
@@ -188,6 +228,129 @@ class ContentCatalog {
     );
   }
 
+  static List<GuidedSession> _candidateSessionsFromJson(String jsonText) {
+    final root = jsonDecode(jsonText) as Map<String, dynamic>;
+    final rawItems = root['items'] as List<dynamic>? ?? const [];
+    return rawItems
+        .map((item) => _candidateSessionFromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  static GuidedSession _candidateSessionFromJson(Map<String, dynamic> json) {
+    final rawKind = _requiredString(json, 'kind');
+    final title = _requiredString(json, 'title');
+    final kind = _candidateKind(rawKind, title);
+    final durationSeconds = json['durationSeconds'] as int?;
+    final durationLabel = _durationLabel(durationSeconds);
+    final provider = _requiredString(json, 'provider');
+    final contentLabel = switch (rawKind) {
+      'spokenKnowledge' => '中文朗读',
+      'soundscape' => '环境声',
+      _ => '轻音乐',
+    };
+
+    return GuidedSession(
+      id: _requiredString(json, 'id'),
+      title: _compactTitle(title),
+      subtitle: '$contentLabel · ${durationLabel ?? '时长待确认'} · 待试听',
+      shortLabel:
+          '候选$contentLabel${durationLabel == null ? '' : ' · $durationLabel'}',
+      kind: kind,
+      tags: _candidateTags(rawKind, kind),
+      regions: ((json['regions'] as List<dynamic>? ?? const []))
+          .cast<String>()
+          .map(
+            (region) => switch (region) {
+              'CN' => ContentRegion.mainlandChina,
+              'INTL' => ContentRegion.international,
+              _ => throw FormatException('未知地区代码: $region'),
+            },
+          )
+          .toSet(),
+      provider: provider,
+      playbackType: PlaybackType.directAudio,
+      playbackUrl: Uri.parse(_requiredString(json, 'playbackUrl')),
+      adFree: json['adFreeSource'] as bool? ?? false,
+      rightsStatus: _requiredString(json, 'rightsStatus'),
+      sourcePage: Uri.parse(_requiredString(json, 'sourcePage')),
+      sourceTitle: title,
+      creator: _requiredString(json, 'creator'),
+      licenseName: _requiredString(json, 'licenseName'),
+      licenseUrl: Uri.parse(_requiredString(json, 'licenseUrl')),
+      loop: json['loopCandidate'] as bool? ?? false,
+      priority: json['selectionScore'] as int? ?? 0,
+      enabled: true,
+      isCandidate: true,
+      languageCode: json['languageCode'] as String? ?? 'zxx',
+      durationSeconds: durationSeconds,
+    );
+  }
+
+  static SessionKind _candidateKind(String rawKind, String title) {
+    if (rawKind == 'spokenKnowledge') return SessionKind.lecture;
+    if (rawKind == 'music') return SessionKind.music;
+    final lowered = title.toLowerCase();
+    if (lowered.contains('rain') || lowered.contains('雨')) {
+      return SessionKind.rain;
+    }
+    if (lowered.contains('ocean') ||
+        lowered.contains('wave') ||
+        lowered.contains('海')) {
+      return SessionKind.ocean;
+    }
+    if (lowered.contains('forest') ||
+        lowered.contains('bird') ||
+        lowered.contains('森林')) {
+      return SessionKind.forest;
+    }
+    return SessionKind.brownNoise;
+  }
+
+  static Set<String> _candidateTags(String rawKind, SessionKind kind) {
+    if (rawKind == 'spokenKnowledge') {
+      return const {
+        'candidate',
+        'quiet_mind',
+        'gentle_company',
+        'spoken_content',
+        'lecture',
+        'not_sleepy',
+        'low_stimulus',
+      };
+    }
+    if (rawKind == 'music') {
+      return const {
+        'candidate',
+        'quiet_mind',
+        'gentle_company',
+        'music',
+        'ambient',
+        'low_stimulus',
+      };
+    }
+    return {
+      'candidate',
+      'quiet_mind',
+      'mask_noise',
+      'nature',
+      'ambient',
+      'low_stimulus',
+      'kind:${kind.name}',
+    };
+  }
+
+  static String? _durationLabel(int? durationSeconds) {
+    if (durationSeconds == null || durationSeconds <= 0) return null;
+    final minutes = (durationSeconds / 60).round();
+    return '约 $minutes 分钟';
+  }
+
+  static String _compactTitle(String title) {
+    final runes = title.runes.toList(growable: false);
+    if (runes.length <= 56) return title;
+    return '${String.fromCharCodes(runes.take(56))}…';
+  }
+
   static String _requiredString(Map<String, dynamic> json, String key) {
     final value = json[key];
     if (value is! String || value.trim().isEmpty) {
@@ -226,16 +389,18 @@ class ContentCatalog {
     var score = session.priority;
     if (session.tags.contains(goal)) score += 100;
     if (goal == 'not_sleepy') {
-      if (session.kind == SessionKind.lecture) {
-        score += 90;
+      if (const {
+        SessionKind.lecture,
+        SessionKind.narrative,
+      }.contains(session.kind)) {
+        score += session.kind == SessionKind.lecture ? 70 : 65;
         final duration = session.durationSeconds ?? 0;
-        score += duration >= 1800 ? 45 : -30;
+        score += duration >= 1800 ? 45 : (duration >= 600 ? 10 : -20);
         if (region == ContentRegion.mainlandChina &&
             session.languageCode == 'zh') {
           score += 60;
         }
       }
-      if (session.kind == SessionKind.narrative) score += 55;
       if (session.kind == SessionKind.guidedVoice) score -= 25;
     }
     if (goal == 'sleep_pressure') {

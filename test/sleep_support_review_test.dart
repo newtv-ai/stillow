@@ -28,7 +28,7 @@ void main() {
     expect(result, SleepSupportGuidance.keepObserving);
   });
 
-  test('白天功能或安全已明显受影响时不要求继续等待', () {
+  test('白天功能或安全已明显受影响时立即建议专业支持', () {
     final result = evaluateSleepSupportReview(
       const SleepSupportReviewAnswers(
         duration: SleepDifficultyDuration.underOneMonth,

@@ -142,37 +142,62 @@ void main() {
       }
     });
 
-    test('课程库有足够内容，并为在线课程提供离线兜底', () {
-      final china = catalog.coursesFor(ContentRegion.mainlandChina);
-      final international = catalog.coursesFor(ContentRegion.international);
-      expect(china.length, greaterThanOrEqualTo(7));
-      expect(international.length, 72);
+    test('精简后的素材全部离线可用，并保留中文人声层次', () {
+      final china = catalog.sessionsFor(ContentRegion.mainlandChina);
+      final international = catalog.sessionsFor(ContentRegion.international);
+      expect(china.length, 10);
+      expect(international.length, 11);
+      expect(catalog.items.length, 11);
       expect(
-        catalog.items.where((item) => item.isPlaybackEligible).length,
-        101,
-      );
-      expect(
-        china.every((item) => item.playbackType == PlaybackType.assetAudio),
+        catalog.items.every(
+          (item) => item.playbackType == PlaybackType.assetAudio,
+        ),
         isTrue,
       );
-      for (final course in international.where(
-        (item) => item.playbackType == PlaybackType.directAudio,
-      )) {
-        final fallback = catalog.offlineFallbackFor(
-          course,
-          ContentRegion.international,
-        );
-        expect(fallback, isNotNull, reason: course.id);
-        expect(fallback!.kind, SessionKind.lecture, reason: course.id);
-        expect(
-          fallback.playbackType,
-          PlaybackType.assetAudio,
-          reason: course.id,
-        );
-      }
+      expect(catalog.spokenFor(ContentRegion.mainlandChina).length, 4);
+      expect(catalog.spokenFor(ContentRegion.international).length, 5);
     });
 
-    test('国内用户觉得还不困时，优先长篇中文课程', () {
+    test('候选目录随安装包提供，但不会进入正式推荐', () {
+      final candidates = catalog.candidateSessionsFor(
+        ContentRegion.mainlandChina,
+      );
+      expect(candidates.length, greaterThan(100));
+      expect(candidates.every((item) => item.isCandidate), isTrue);
+      expect(
+        candidates.every(
+          (item) =>
+              item.playbackType == PlaybackType.directAudio &&
+              item.playbackUrl.scheme == 'https' &&
+              item.sourcePage.scheme == 'https' &&
+              item.isPlaybackEligible,
+        ),
+        isTrue,
+      );
+      expect(catalog.items.every((item) => !item.isCandidate), isTrue);
+      expect(
+        catalog
+            .recommend(
+              const UserProfile(onboardingComplete: true),
+              ContentRegion.mainlandChina,
+            )
+            .isCandidate,
+        isFalse,
+      );
+    });
+
+    test('Wikimedia 中文候选使用 iOS 和 Android 都可播放的 MP3 转码', () {
+      final wikimedia = catalog.candidates.where(
+        (item) => item.provider == 'wikimediaCommons',
+      );
+      expect(wikimedia, isNotEmpty);
+      expect(
+        wikimedia.every((item) => item.playbackUrl.path.endsWith('.mp3')),
+        isTrue,
+      );
+    });
+
+    test('国内用户觉得还不困时，优先长篇中文女声', () {
       final result = catalog.recommend(
         const UserProfile(
           onboardingComplete: true,
@@ -184,7 +209,8 @@ void main() {
         NightState.notSleepy,
       );
 
-      expect(result.kind, SessionKind.lecture);
+      expect(result.id, 'narrative-city-lights-zh');
+      expect(result.kind, SessionKind.narrative);
       expect(result.languageCode, 'zh');
       expect(result.durationSeconds, greaterThanOrEqualTo(30 * 60));
       expect(result.playbackType, PlaybackType.assetAudio);
@@ -215,40 +241,42 @@ void main() {
           reason: '$region 缺少极简声音',
         );
         expect(
-          sessions.any((item) => item.tags.contains('guided')),
-          isTrue,
-          reason: '$region 缺少逐步引导',
-        );
-        expect(
           sessions.any((item) => item.tags.contains('ambient')),
           isTrue,
           reason: '$region 缺少纯环境声',
         );
       }
+      expect(
+        catalog
+            .sessionsFor(ContentRegion.international)
+            .any((item) => item.tags.contains('guided')),
+        isTrue,
+      );
     });
 
-    test('中文区同时提供音乐、中文朗读、中文科普和引导放松', () {
+    test('中文区同时提供音乐、长短中文女声和自然声', () {
       final china = catalog.sessionsFor(ContentRegion.mainlandChina);
-      expect(
-        china.where((item) => item.kind == SessionKind.music).length,
-        greaterThanOrEqualTo(5),
-      );
+      expect(china.where((item) => item.kind == SessionKind.music).length, 3);
       expect(
         china.where((item) => item.kind == SessionKind.narrative).length,
-        greaterThanOrEqualTo(2),
+        3,
       );
       expect(
         china
             .where(
               (item) =>
-                  item.kind == SessionKind.lecture &&
+                  item.kind == SessionKind.narrative &&
                   item.languageCode == 'zh' &&
                   (item.durationSeconds ?? 0) >= 30 * 60,
             )
             .length,
-        greaterThanOrEqualTo(3),
+        1,
       );
-      expect(china.any((item) => item.kind == SessionKind.guidedVoice), isTrue);
+      expect(china.where((item) => item.kind == SessionKind.lecture).length, 1);
+      expect(
+        china.where((item) => item.tags.contains('nature')).length,
+        greaterThanOrEqualTo(2),
+      );
     });
 
     test('夜醒推荐不会播放课程，也不会跳转平台', () {
