@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/content-lab.yml
       - tools/build_sleep_masters.py
+      - tools/build_breathing_pacer.py
       - tools/analyze_spoken_candidates.py
       - tools/spoken_candidate_sources.json
 
@@ -34,14 +35,22 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy praat-parselmouth
 
-      - name: Preserve reviewed short music sources
+      - name: Preserve reviewed source audio
         run: |
           mkdir -p tools/source_audio
           test -f tools/source_audio/music-first-light-source.m4a || cp assets/audio/music-first-light.m4a tools/source_audio/music-first-light-source.m4a
           test -f tools/source_audio/music-contemplation-source.m4a || cp assets/audio/music-contemplation.m4a tools/source_audio/music-contemplation-source.m4a
+          if ! test -f tools/source_audio/coherent-breathing-gong.ogg; then
+            curl --fail --location --retry 3 \
+              --output tools/source_audio/coherent-breathing-gong.ogg \
+              https://upload.wikimedia.org/wikipedia/commons/2/2c/Gong55.ogg
+          fi
 
       - name: Build 25-minute sleep masters
         run: python tools/build_sleep_masters.py
+
+      - name: Build 20-minute breathing pacer
+        run: python tools/build_breathing_pacer.py
 
       - name: Screen spoken candidates acoustically
         run: python tools/analyze_spoken_candidates.py
@@ -56,13 +65,15 @@ jobs:
           git add \
             assets/audio/music-first-light.m4a \
             assets/audio/music-contemplation.m4a \
+            assets/audio/coherent-breathing-gong.m4a \
             assets/content/audio_catalog.json \
             tools/source_audio/music-first-light-source.m4a \
-            tools/source_audio/music-contemplation-source.m4a
+            tools/source_audio/music-contemplation-source.m4a \
+            tools/source_audio/coherent-breathing-gong.ogg
           git add -f docs/spoken_candidate_analysis.md
           if git diff --cached --quiet; then
             echo "No generated changes to commit."
             exit 0
           fi
-          git commit -m "build long-form sleep masters and screen spoken candidates"
+          git commit -m "build breathing pacer and refresh sleep content"
           git push origin HEAD:main
