@@ -18,6 +18,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG = PROJECT_ROOT / "assets" / "content" / "audio_catalog.json"
+DEFAULT_STUDY = PROJECT_ROOT / "assets" / "content" / "study_drowsy_catalog.json"
 DEFAULT_CANDIDATES = PROJECT_ROOT / "assets" / "content" / "audio_candidates.json"
 
 ROLE_TAGS = {
@@ -34,6 +35,14 @@ CORE_GOAL_TAGS = {
     "not_sleepy",
     "sleep_pressure",
     "night_awake",
+}
+
+REUSABLE_RIGHTS = {
+    "publicDomain",
+    "cc0",
+    "ccBy",
+    "ccBySa",
+    "usGovernmentPublicDomain",
 }
 
 
@@ -85,6 +94,11 @@ def audit_catalog(root: dict[str, Any], project_root: Path) -> tuple[list[str], 
         kind = raw.get("kind")
         duration = raw.get("durationSeconds")
         duration = duration if isinstance(duration, int) else 0
+
+        if "study_drowsy" in tags:
+            errors.append(
+                f"{item_id}: study_drowsy content belongs in study_drowsy_catalog.json"
+            )
 
         if role == "role_trial_aligned_music":
             if kind != "music":
@@ -178,6 +192,65 @@ def audit_catalog(root: dict[str, Any], project_root: Path) -> tuple[list[str], 
     return errors, warnings
 
 
+def audit_study_catalog(root: dict[str, Any]) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    items = root.get("items")
+    if not isinstance(items, list) or not items:
+        return ["study_drowsy_catalog.json has no items"], warnings
+
+    seen_ids: set[str] = set()
+    for raw in items:
+        if not isinstance(raw, dict):
+            errors.append("study catalog item is not an object")
+            continue
+
+        item_id = str(raw.get("id") or "<missing-id>")
+        if item_id in seen_ids:
+            errors.append(f"{item_id}: duplicate study id")
+        seen_ids.add(item_id)
+
+        tags = set(raw.get("tags") or [])
+        roles = tags & ROLE_TAGS
+        if roles != {"role_comfort_only"}:
+            errors.append(
+                f"{item_id}: study content must be role_comfort_only, got {sorted(roles)}"
+            )
+        for required in ("study_drowsy", "spoken_content", "low_stimulus"):
+            if required not in tags:
+                errors.append(f"{item_id}: missing study tag {required}")
+        forbidden = tags & CORE_GOAL_TAGS
+        if forbidden:
+            errors.append(
+                f"{item_id}: personalized study content must not claim core goals "
+                f"{sorted(forbidden)}"
+            )
+
+        if raw.get("kind") not in {"lecture", "narrative"}:
+            errors.append(f"{item_id}: study content must be lecture or narrative")
+        duration = raw.get("durationSeconds")
+        if not isinstance(duration, int) or duration < 15 * 60:
+            errors.append(f"{item_id}: study content must be at least 15 minutes")
+        if raw.get("playbackType") != "directAudio":
+            errors.append(f"{item_id}: study content must use directAudio")
+        if raw.get("adFree") is not True:
+            errors.append(f"{item_id}: study content must be ad-free")
+        if raw.get("rightsStatus") not in REUSABLE_RIGHTS:
+            errors.append(f"{item_id}: study content lacks reusable commercial rights")
+
+        for field in ("playbackUrl", "sourcePage", "licenseUrl"):
+            value = raw.get(field)
+            if not isinstance(value, str) or not value.startswith("https://"):
+                errors.append(f"{item_id}: {field} must be HTTPS")
+
+        if "low_pitch_screened" not in tags:
+            warnings.append(
+                f"{item_id}: not marked low_pitch_screened; confirm voice pitch/dynamics"
+            )
+
+    return errors, warnings
+
+
 def audit_candidates(root: dict[str, Any]) -> tuple[list[str], list[str], Counter[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -204,7 +277,7 @@ def audit_candidates(root: dict[str, Any]) -> tuple[list[str], list[str], Counte
         if review_status not in (None, "unreviewed"):
             warnings.append(
                 f"{item_id}: reviewStatus={review_status!r}; promote reviewed material "
-                "into audio_catalog.json instead of leaving it in the candidate queue"
+                "into an approved catalog instead of leaving it in the candidate queue"
             )
 
         if raw.get("enabled") is True:
@@ -216,6 +289,7 @@ def audit_candidates(root: dict[str, Any]) -> tuple[list[str], list[str], Counte
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog", type=Path, default=DEFAULT_CATALOG)
+    parser.add_argument("--study", type=Path, default=DEFAULT_STUDY)
     parser.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES)
     parser.add_argument(
         "--skip-files",
@@ -237,6 +311,15 @@ def main() -> int:
 
     errors, warnings = audit_catalog(catalog_root_for_audit, project_root)
 
+    study_count = 0
+    if args.study.exists():
+        study_root = load_json(args.study)
+        study_items = study_root.get("items")
+        study_count = len(study_items) if isinstance(study_items, list) else 0
+        study_errors, study_warnings = audit_study_catalog(study_root)
+        errors.extend(study_errors)
+        warnings.extend(study_warnings)
+
     candidate_counts: Counter[str] = Counter()
     if args.candidates.exists():
         candidate_root = load_json(args.candidates)
@@ -255,6 +338,9 @@ def main() -> int:
     print("Approved catalog roles:")
     for role in sorted(ROLE_TAGS):
         print(f"  {role}: {role_counts[role]}")
+
+    if study_count:
+        print(f"Personalized study/drowsy catalog: {study_count}")
 
     if candidate_counts:
         print("Candidate review queue:")
