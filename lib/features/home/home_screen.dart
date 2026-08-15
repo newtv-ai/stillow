@@ -600,9 +600,9 @@ class _FeedbackCardState extends State<_FeedbackCard> {
       await widget.onFeedback(feedback);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('这次反馈没能保存，可以再试一次。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('这次反馈没能保存，可以再试一次。')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
