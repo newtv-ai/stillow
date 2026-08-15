@@ -159,7 +159,8 @@ class UserProfile {
   static bool _isLearnableTag(String tag) {
     if (tag.startsWith('role_') ||
         tag.startsWith('review_') ||
-        tag.startsWith('needs_')) {
+        tag.startsWith('needs_') ||
+        tag.endsWith('_screened')) {
       return false;
     }
     return !const {
@@ -174,6 +175,7 @@ class UserProfile {
       'low_stimulus',
       'instrumental',
       'short_loop_risk',
+      'long_form_master',
     }.contains(tag);
   }
 }
