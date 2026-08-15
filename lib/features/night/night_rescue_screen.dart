@@ -89,24 +89,34 @@ class _NightRescueScreenState extends State<NightRescueScreen> {
   Future<void> _start() async {
     if (_starting) return;
     setState(() => _starting = true);
-    final playable = await widget.offlineAudioStore.resolve(_session);
-    if (!mounted) return;
-    await Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => PlayerScreen(
-          session: playable,
-          onSessionStarted: widget.onSessionStarted,
-          onSessionFinished: widget.onSessionFinished,
-          nightMode: true,
-          autoStart: true,
-          defaultSleepTimer: const Duration(minutes: 10),
-          fallbackSession: widget.catalog.offlineFallbackFor(
-            _session,
-            widget.region,
+    try {
+      final playable = await widget.offlineAudioStore.resolve(_session);
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => PlayerScreen(
+            session: playable,
+            onSessionStarted: widget.onSessionStarted,
+            onSessionFinished: widget.onSessionFinished,
+            nightMode: true,
+            autoStart: true,
+            defaultSleepTimer: const Duration(minutes: 10),
+            fallbackSession: widget.catalog.offlineFallbackFor(
+              _session,
+              widget.region,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('这段声音暂时没能开始，可以换一段再试。')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
   }
 
   @override
