@@ -33,8 +33,8 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Format Dart code for validation
+        run: dart format lib test
 
       - name: Analyze Dart code
         run: flutter analyze
@@ -47,3 +47,6 @@ jobs:
 
       - name: Audit approved sleep audio
         run: python tools/audit_sleep_audio.py
+
+      - name: Verify committed Dart formatting
+        run: git diff --exit-code -- lib test
