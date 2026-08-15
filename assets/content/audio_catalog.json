@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "updatedAt": "2026-08-15",
   "sciencePolicyVersion": 1,
   "items": [
@@ -163,6 +163,42 @@
       "durationSeconds": 25,
       "loop": true,
       "priority": 82
+    },
+    {
+      "id": "breathing-coherent-gong",
+      "enabled": true,
+      "regions": [
+        "CN",
+        "INTL"
+      ],
+      "provider": "wikimediaCommons",
+      "playbackType": "assetAudio",
+      "assetPath": "assets/audio/coherent-breathing-gong.m4a",
+      "sha256": "ff02448cc07083c2d72304a990593ea7722d4a4c9396a0b580708d44b5476e49",
+      "adFree": true,
+      "rightsStatus": "cc0",
+      "playbackUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Gong55.ogg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Gong55.ogg",
+      "sourceTitle": "Gong55.ogg · 5-second inhale / 5-second exhale loop base",
+      "creator": "stephan",
+      "licenseName": "CC0 1.0 · 20-minute AAC breathing-pacer master",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "title": "慢慢呼吸 · 5 秒吸 / 5 秒呼",
+      "subtitle": "低沉锣声提供约 20 分钟节拍。只在舒服时跟随，不用憋气；头晕、气短或不适时回到自然呼吸。",
+      "shortLabel": "呼吸节拍 · 约20分钟",
+      "kind": "breathingPacer",
+      "languageCode": "zxx",
+      "tags": [
+        "quiet_mind",
+        "relax_body",
+        "breathing",
+        "minimal",
+        "low_stimulus",
+        "role_breathing_pacer"
+      ],
+      "durationSeconds": 1200,
+      "loop": false,
+      "priority": 86
     },
     {
       "id": "narrative-city-lights-zh",
