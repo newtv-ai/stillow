@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - .github/workflows/content-lab.yml
+      - tools/build_sleep_masters.py
+      - tools/analyze_spoken_candidates.py
+      - tools/spoken_candidate_sources.json
 
 permissions:
   contents: write
