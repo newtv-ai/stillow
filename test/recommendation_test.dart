@@ -396,7 +396,10 @@ void main() {
       expect(result.id, target.id);
       expect(learned.sessionAffinities[target.id], 12);
       expect(learned.tagAffinities['music'], 8);
-      expect(learned.tagAffinities.containsKey('role_supporting_music'), isFalse);
+      expect(
+        learned.tagAffinities.containsKey('role_supporting_music'),
+        isFalse,
+      );
       expect(learned.tagAffinities.containsKey('short_loop_risk'), isFalse);
     });
 
