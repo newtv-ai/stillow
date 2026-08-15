@@ -442,6 +442,7 @@ class ContentCatalog {
     final trialAlignedMusic = session.tags.contains('role_trial_aligned_music');
     final guidedRelaxation = session.tags.contains('role_guided_relaxation');
     final supportingMusic = session.tags.contains('role_supporting_music');
+    final breathingPacer = session.tags.contains('role_breathing_pacer');
     final comfortOnly = session.tags.contains('role_comfort_only');
     final maskingOnly = session.tags.contains('role_masking_only');
     final studyDrowsy = session.tags.contains('study_drowsy');
@@ -467,6 +468,9 @@ class ContentCatalog {
           'night_awake',
         }.contains(goal)) {
       score += 10;
+    }
+    if (breathingPacer && const {'quiet_mind', 'relax_body'}.contains(goal)) {
+      score += 20;
     }
 
     if (studyDrowsy) {
