@@ -58,8 +58,8 @@ jobs:
             assets/audio/music-contemplation.m4a \
             assets/content/audio_catalog.json \
             tools/source_audio/music-first-light-source.m4a \
-            tools/source_audio/music-contemplation-source.m4a \
-            docs/spoken_candidate_analysis.md
+            tools/source_audio/music-contemplation-source.m4a
+          git add -f docs/spoken_candidate_analysis.md
           if git diff --cached --quiet; then
             echo "No generated changes to commit."
             exit 0
