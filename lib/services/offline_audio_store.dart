@@ -12,13 +12,16 @@ class OfflineAudioStore {
   OfflineAudioStore({
     http.Client? client,
     OfflineDirectoryProvider? directoryProvider,
+    int maxDownloadBytes = 80 * 1024 * 1024,
   }) : _client = client ?? http.Client(),
        _ownsClient = client == null,
-       _directoryProvider = directoryProvider ?? PrivateLocalStorage.directory;
+       _directoryProvider = directoryProvider ?? PrivateLocalStorage.directory,
+       _maxDownloadBytes = maxDownloadBytes;
 
   final http.Client _client;
   final bool _ownsClient;
   final OfflineDirectoryProvider _directoryProvider;
+  final int _maxDownloadBytes;
   Future<Directory>? _audioDirectoryFuture;
 
   Future<bool> isAvailableOffline(GuidedSession session) async {
@@ -44,6 +47,9 @@ class OfflineAudioStore {
     if (session.playbackType != PlaybackType.directAudio) {
       throw ArgumentError('只有在线直连音频需要下载');
     }
+    if (session.playbackUrl.scheme.toLowerCase() != 'https') {
+      throw const OfflineAudioException('只允许通过 HTTPS 下载音频');
+    }
 
     final existing = await downloadedFile(session);
     if (existing != null) {
@@ -62,10 +68,34 @@ class OfflineAudioStore {
         throw OfflineAudioException('下载返回 ${response.statusCode}');
       }
 
+      final contentType = response.headers['content-type']
+          ?.split(';')
+          .first
+          .trim()
+          .toLowerCase();
+      if (contentType != null &&
+          contentType.isNotEmpty &&
+          !contentType.startsWith('audio/') &&
+          contentType != 'application/octet-stream' &&
+          contentType != 'binary/octet-stream') {
+        throw OfflineAudioException('下载内容不是音频：$contentType');
+      }
+
       final expectedBytes = response.contentLength;
+      if (expectedBytes != null && expectedBytes > _maxDownloadBytes) {
+        throw OfflineAudioException(
+          '音频文件过大（最多 ${_maxDownloadBytes ~/ (1024 * 1024)} MB）',
+        );
+      }
+
       var receivedBytes = 0;
       final stream = response.stream.map((chunk) {
         receivedBytes += chunk.length;
+        if (receivedBytes > _maxDownloadBytes) {
+          throw OfflineAudioException(
+            '音频文件超过 ${_maxDownloadBytes ~/ (1024 * 1024)} MB 限制',
+          );
+        }
         onProgress?.call(
           expectedBytes == null || expectedBytes == 0
               ? null
