@@ -53,5 +53,6 @@ flutter:
 
   assets:
     - assets/content/audio_catalog.json
+    - assets/content/study_drowsy_catalog.json
     - assets/content/dream_symbols.json
     - assets/audio/
