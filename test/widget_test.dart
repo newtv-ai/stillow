@@ -96,12 +96,7 @@ void main() {
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
 
-    const choices = [
-      '轻柔的人声或中文朗读',
-      '熟悉、平缓的音乐',
-      '雨声、风声等环境声',
-      '更喜欢安静，只要少量提示',
-    ];
+    const choices = ['轻柔的人声或中文朗读', '熟悉、平缓的音乐', '雨声、风声等环境声', '更喜欢安静，只要少量提示'];
     expect(find.byType(SoftChoiceCard), findsNWidgets(4));
     for (final choice in choices) {
       expect(find.text(choice).hitTestable(), findsOneWidget);
