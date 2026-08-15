@@ -79,11 +79,16 @@ def _build_master(source: Path, output: Path) -> None:
 
     effective = source_seconds - CROSSFADE_SECONDS
     copies = max(2, math.ceil((TARGET_SECONDS - CROSSFADE_SECONDS) / effective))
-    split_labels = "".join(f"[s{i}]" for i in range(copies))
-    filters = [f"[0:a]asplit={copies}{split_labels}"]
+
+    # Re-open the source once per copy instead of using asplit. Acrossfade pulls
+    # its inputs sequentially; independent input streams keep every copy at full
+    # duration and avoid the truncated output observed with a shared asplit graph.
+    input_args: list[str] = []
+    filters: list[str] = []
     for index in range(copies):
+        input_args.extend(["-i", str(source)])
         filters.append(
-            f"[s{index}]atrim=0:{source_seconds:.4f},asetpts=PTS-STARTPTS[a{index}]"
+            f"[{index}:a]atrim=0:{source_seconds:.4f},asetpts=PTS-STARTPTS[a{index}]"
         )
 
     previous = "a0"
@@ -111,8 +116,7 @@ def _build_master(source: Path, output: Path) -> None:
             "-loglevel",
             "error",
             "-y",
-            "-i",
-            str(source),
+            *input_args,
             "-filter_complex",
             ";".join(filters),
             "-map",
