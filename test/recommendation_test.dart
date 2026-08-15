@@ -212,13 +212,32 @@ void main() {
 
     test('学习型犯困素材与核心目录隔离，并且冷启动不自动推荐', () {
       final study = catalog.studyDrowsyFor(ContentRegion.mainlandChina);
-      expect(study, hasLength(1));
-      expect(study.single.id, 'study-zh-wikipedia-2024');
-      expect(study.single.kind, SessionKind.lecture);
-      expect(study.single.playbackType, PlaybackType.directAudio);
-      expect(study.single.playbackUrl.scheme, 'https');
-      expect(study.single.tags, contains('study_drowsy'));
-      expect(study.single.tags, contains('role_comfort_only'));
+      expect(study, hasLength(3));
+      expect(
+        study.map((item) => item.id),
+        containsAll({
+          'study-zh-hydrochloric-acid',
+          'study-zh-europe',
+          'study-zh-wikipedia-2024',
+        }),
+      );
+      expect(study.every((item) => item.kind == SessionKind.lecture), isTrue);
+      expect(
+        study.every((item) => item.playbackType == PlaybackType.directAudio),
+        isTrue,
+      );
+      expect(
+        study.every((item) => item.playbackUrl.scheme == 'https'),
+        isTrue,
+      );
+      expect(
+        study.every((item) => item.tags.contains('study_drowsy')),
+        isTrue,
+      );
+      expect(
+        study.every((item) => item.tags.contains('role_comfort_only')),
+        isTrue,
+      );
       expect(
         catalog.items.any((item) => item.tags.contains('study_drowsy')),
         isFalse,
@@ -228,7 +247,7 @@ void main() {
       expect(result.tags, isNot(contains('study_drowsy')));
     });
 
-    test('一次正向反馈仍不自动推课程，两次后才按个人经验提高权重', () {
+    test('一次正向反馈仍不自动推课程，两次后才按具体素材经验提高权重', () {
       final target = catalog.findById('study-zh-wikipedia-2024')!;
       var learned = profile.learnFrom(target, SessionFeedback.comfortable);
 
@@ -244,6 +263,23 @@ void main() {
       expect(learned.sessionAffinities[target.id], 6);
       expect(result.id, target.id);
       expect(learned.tagAffinities.containsKey('low_pitch_screened'), isFalse);
+    });
+
+    test('同类课程有效也不会解锁没亲自验证过的另一门课', () {
+      final proven = catalog.findById('study-zh-wikipedia-2024')!;
+      final untried = catalog.findById('study-zh-hydrochloric-acid')!;
+      var learned = profile;
+      for (var index = 0; index < 3; index++) {
+        learned = learned.learnFrom(proven, SessionFeedback.comfortable);
+      }
+
+      expect(learned.tagAffinities['study_drowsy'], 6);
+      expect(learned.sessionAffinities[proven.id], 9);
+      expect(learned.sessionAffinities[untried.id] ?? 0, 0);
+      expect(
+        catalog.recommend(learned, ContentRegion.mainlandChina).id,
+        proven.id,
+      );
     });
 
     test('学习型犯困偏好可以被后续不适合反馈撤销', () {
@@ -266,8 +302,16 @@ void main() {
 
     test('国际区额外提供长篇 Logic 技术朗读', () {
       final study = catalog.studyDrowsyFor(ContentRegion.international);
-      expect(study.map((item) => item.id), contains('study-zh-wikipedia-2024'));
-      expect(study.map((item) => item.id), contains('study-en-logic'));
+      expect(study, hasLength(4));
+      expect(
+        study.map((item) => item.id),
+        containsAll({
+          'study-zh-hydrochloric-acid',
+          'study-zh-europe',
+          'study-zh-wikipedia-2024',
+          'study-en-logic',
+        }),
+      );
       expect(
         study.every(
           (item) =>
