@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "updatedAt": "2026-08-15",
   "sciencePolicyVersion": 1,
   "items": [
@@ -49,18 +49,18 @@
       "provider": "openGameArt",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/music-first-light.m4a",
-      "sha256": "092f7311ac54c4bc38f6b0ca76de9f482f5833c01ce0fef5cda69022dfea2120",
+      "sha256": "a5e8906bee18f76cda3a756b28d72d1ba602c7fda34916c3be7f0a40094b96ca",
       "adFree": true,
       "rightsStatus": "cc0",
       "playbackUrl": "https://opengameart.org/sites/default/files/first_light_particles_1.mp3",
       "sourcePage": "https://opengameart.org/node/182244",
       "sourceTitle": "First Light Particles",
       "creator": "Yoiyami",
-      "licenseName": "CC0 1.0 · AAC re-encode and loudness adjustment",
+      "licenseName": "CC0 1.0 · AAC re-encode and loudness adjustment · 25-minute crossfade master",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "title": "第一束微光",
-      "subtitle": "柔和钢琴与安静铺底，节奏平缓，循环后会逐次降低音量。",
-      "shortLabel": "轻音乐 · 循环播放",
+      "subtitle": "柔和钢琴与安静铺底，整理为约 25 分钟连续版本，段落之间使用柔和交叉淡化。",
+      "shortLabel": "轻音乐 · 约25分钟",
       "kind": "music",
       "languageCode": "zxx",
       "tags": [
@@ -74,10 +74,10 @@
         "night_awake",
         "instrumental",
         "role_trial_aligned_music",
-        "needs_long_form_master"
+        "long_form_master"
       ],
-      "durationSeconds": 132,
-      "loop": true,
+      "durationSeconds": 1500,
+      "loop": false,
       "priority": 91
     },
     {
@@ -90,18 +90,18 @@
       "provider": "openGameArt",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/music-contemplation.m4a",
-      "sha256": "7485f79fc63c93feff4aef19f546da86499c8bacece2c20ed46b19c414035b55",
+      "sha256": "f8a8238c2eb0b88f6e41f1764d2e98f45415284a87ef4e979869a8fcc5c0060b",
       "adFree": true,
       "rightsStatus": "cc0",
       "playbackUrl": "https://opengameart.org/sites/default/files/Contemplation.mp3",
       "sourcePage": "https://opengameart.org/content/contemplation-0",
       "sourceTitle": "Contemplation",
       "creator": "Joth",
-      "licenseName": "CC0 1.0 · AAC re-encode and loudness adjustment",
+      "licenseName": "CC0 1.0 · AAC re-encode and loudness adjustment · 25-minute crossfade master",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "title": "静静铺开的夜色",
-      "subtitle": "缓慢铺开的环境音乐，存在感很轻，适合留在背景里。",
-      "shortLabel": "环境音乐 · 循环播放",
+      "subtitle": "缓慢铺开的环境音乐，整理为约 25 分钟连续版本，尽量减少短循环的注意力提示。",
+      "shortLabel": "环境音乐 · 约25分钟",
       "kind": "music",
       "languageCode": "zxx",
       "tags": [
@@ -116,10 +116,10 @@
         "night_awake",
         "instrumental",
         "role_trial_aligned_music",
-        "needs_long_form_master"
+        "long_form_master"
       ],
-      "durationSeconds": 120,
-      "loop": true,
+      "durationSeconds": 1500,
+      "loop": false,
       "priority": 89
     },
     {
