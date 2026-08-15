@@ -25,6 +25,7 @@ ROLE_TAGS = {
     "role_guided_relaxation",
     "role_trial_aligned_music",
     "role_supporting_music",
+    "role_breathing_pacer",
     "role_masking_only",
     "role_comfort_only",
 }
@@ -132,6 +133,20 @@ def audit_catalog(root: dict[str, Any], project_root: Path) -> tuple[list[str], 
                     f"{item_id}: guided relaxation is under 10 minutes; confirm that "
                     "the shorter duration is intentional"
                 )
+
+        elif role == "role_breathing_pacer":
+            if kind != "breathingPacer":
+                errors.append(f"{item_id}: breathing pacer requires kind=breathingPacer")
+            for required in ("breathing", "low_stimulus"):
+                if required not in tags:
+                    errors.append(f"{item_id}: breathing pacer missing tag {required}")
+            forbidden = tags & {"mask_noise", "not_sleepy", "sleep_pressure", "night_awake"}
+            if forbidden:
+                errors.append(
+                    f"{item_id}: breathing pacer has unrelated goal tags {sorted(forbidden)}"
+                )
+            if duration < 10 * 60:
+                errors.append(f"{item_id}: breathing pacer must be at least 10 minutes")
 
         elif role == "role_supporting_music":
             if kind != "music":
