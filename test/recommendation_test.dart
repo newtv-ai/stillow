@@ -226,14 +226,8 @@ void main() {
         study.every((item) => item.playbackType == PlaybackType.directAudio),
         isTrue,
       );
-      expect(
-        study.every((item) => item.playbackUrl.scheme == 'https'),
-        isTrue,
-      );
-      expect(
-        study.every((item) => item.tags.contains('study_drowsy')),
-        isTrue,
-      );
+      expect(study.every((item) => item.playbackUrl.scheme == 'https'), isTrue);
+      expect(study.every((item) => item.tags.contains('study_drowsy')), isTrue);
       expect(
         study.every((item) => item.tags.contains('role_comfort_only')),
         isTrue,
