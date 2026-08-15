@@ -1,0 +1,65 @@
+name: Stillow Content Lab
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/content-lab.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install audio tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install numpy praat-parselmouth
+
+      - name: Preserve reviewed short music sources
+        run: |
+          mkdir -p tools/source_audio
+          test -f tools/source_audio/music-first-light-source.m4a || cp assets/audio/music-first-light.m4a tools/source_audio/music-first-light-source.m4a
+          test -f tools/source_audio/music-contemplation-source.m4a || cp assets/audio/music-contemplation.m4a tools/source_audio/music-contemplation-source.m4a
+
+      - name: Build 25-minute sleep masters
+        run: python tools/build_sleep_masters.py
+
+      - name: Screen spoken candidates acoustically
+        run: python tools/analyze_spoken_candidates.py
+
+      - name: Audit resulting approved catalog
+        run: python tools/audit_sleep_audio.py
+
+      - name: Commit generated content outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            assets/audio/music-first-light.m4a \
+            assets/audio/music-contemplation.m4a \
+            assets/content/audio_catalog.json \
+            tools/source_audio/music-first-light-source.m4a \
+            tools/source_audio/music-contemplation-source.m4a \
+            docs/spoken_candidate_analysis.md
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git commit -m "build long-form sleep masters and screen spoken candidates"
+          git push origin HEAD:main
