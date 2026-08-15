@@ -74,6 +74,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final recommendation = catalog.recommend(profile, region);
     final candidateSessions = catalog.candidateSessionsFor(region);
+    final studySessions = catalog.studyDrowsyFor(region);
 
     return Scaffold(
       body: StillowBackdrop(
@@ -228,6 +229,34 @@ class HomeScreen extends StatelessWidget {
                       }
                     },
                   ),
+                  if (studySessions.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _QuietAction(
+                      icon: Icons.menu_book_outlined,
+                      title: '听点容易走神的知识',
+                      subtitle: '有人一学习就犯困；这里不假定有效，只按你的反馈慢慢学习',
+                      onTap: () async {
+                        final session = await Navigator.of(context)
+                            .push<GuidedSession>(
+                              MaterialPageRoute<GuidedSession>(
+                                builder: (_) => SessionLibraryScreen(
+                                  sessions: studySessions,
+                                  favoriteSessionIds:
+                                      profile.favoriteSessionIds,
+                                  onFavoriteChanged: onFavoriteChanged,
+                                  offlineAudioStore: offlineAudioStore,
+                                  title: '低起伏知识',
+                                  subtitle:
+                                      '这些内容不是通用助眠法。你主动选择后，如果多次觉得有帮助，Stillow 才会逐渐提高它的个人推荐权重。',
+                                ),
+                              ),
+                            );
+                        if (session != null && context.mounted) {
+                          await _openPlayer(context, session);
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _QuietAction(
                     icon: Icons.nights_stay_outlined,
