@@ -156,13 +156,26 @@ class UserProfile {
     );
   }
 
-  static bool _isLearnableTag(String tag) => !const {
-    'quiet_mind',
-    'relax_body',
-    'mask_noise',
-    'gentle_company',
-    'night_awake',
-  }.contains(tag);
+  static bool _isLearnableTag(String tag) {
+    if (tag.startsWith('role_') ||
+        tag.startsWith('review_') ||
+        tag.startsWith('needs_')) {
+      return false;
+    }
+    return !const {
+      'quiet_mind',
+      'relax_body',
+      'mask_noise',
+      'gentle_company',
+      'night_awake',
+      'not_sleepy',
+      'sleep_pressure',
+      'candidate',
+      'low_stimulus',
+      'instrumental',
+      'short_loop_risk',
+    }.contains(tag);
+  }
 }
 
 class GuidedSession {
