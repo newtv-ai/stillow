@@ -110,9 +110,9 @@ class _NightRescueScreenState extends State<NightRescueScreen> {
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('这段声音暂时没能开始，可以换一段再试。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('这段声音暂时没能开始，可以换一段再试。')));
       }
     } finally {
       if (mounted) setState(() => _starting = false);
