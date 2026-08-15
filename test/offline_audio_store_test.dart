@@ -66,9 +66,84 @@ void main() {
     expect(files.whereType<File>(), isEmpty);
     store.dispose();
   });
+
+  test('拒绝非 HTTPS 的候选音频', () async {
+    final store = OfflineAudioStore(
+      client: MockClient((_) async => http.Response('unused', 200)),
+      directoryProvider: () async => temporaryDirectory,
+    );
+    final session = _directAudioSession(
+      playbackUrl: Uri.parse('http://example.com/audio.mp3'),
+    );
+
+    await expectLater(
+      store.download(session),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.message,
+          'message',
+          contains('HTTPS'),
+        ),
+      ),
+    );
+    store.dispose();
+  });
+
+  test('拒绝明显不是音频的响应', () async {
+    final store = OfflineAudioStore(
+      client: MockClient(
+        (_) async => http.Response(
+          '<html>not audio</html>',
+          200,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+        ),
+      ),
+      directoryProvider: () async => temporaryDirectory,
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.message,
+          'message',
+          contains('不是音频'),
+        ),
+      ),
+    );
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
+
+  test('限制候选音频下载大小并清理 partial 文件', () async {
+    final store = OfflineAudioStore(
+      client: MockClient(
+        (_) async => http.Response.bytes(
+          List<int>.filled(2048, 1),
+          200,
+          headers: {'content-type': 'audio/mpeg'},
+        ),
+      ),
+      directoryProvider: () async => temporaryDirectory,
+      maxDownloadBytes: 1024,
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(isA<OfflineAudioException>()),
+    );
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
 }
 
-GuidedSession _directAudioSession() => GuidedSession(
+GuidedSession _directAudioSession({Uri? playbackUrl}) => GuidedSession(
   id: 'online-test-audio',
   title: '测试音频',
   subtitle: '测试下载流程',
@@ -78,7 +153,7 @@ GuidedSession _directAudioSession() => GuidedSession(
   regions: const {ContentRegion.international},
   provider: 'testProvider',
   playbackType: PlaybackType.directAudio,
-  playbackUrl: Uri.parse('https://example.com/audio.mp3'),
+  playbackUrl: playbackUrl ?? Uri.parse('https://example.com/audio.mp3'),
   adFree: true,
   rightsStatus: 'cc0',
   sourcePage: Uri.parse('https://example.com/source'),
