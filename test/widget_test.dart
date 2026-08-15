@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stillow/app.dart';
 import 'package:stillow/data/content_catalog.dart';
@@ -18,9 +19,20 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ContentCatalog catalog;
+  late ContentCatalog reviewCatalog;
 
   setUpAll(() async {
     catalog = await ContentCatalog.loadAsset();
+    final catalogText = await rootBundle.loadString(
+      'assets/content/audio_catalog.json',
+    );
+    final candidateText = await File(
+      'assets/content/audio_candidates.json',
+    ).readAsString();
+    reviewCatalog = ContentCatalog.fromJsonString(
+      catalogText,
+      candidateJsonText: candidateText,
+    );
   });
 
   testWidgets('新用户可以轻松完成三步首次选择', (tester) async {
@@ -84,7 +96,12 @@ void main() {
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
 
-    const choices = ['轻柔的人声或中文朗读', '熟悉、平缓的音乐', '雨声、风声等环境声', '更喜欢安静，只要少量提示'];
+    const choices = [
+      '轻柔的人声或中文朗读',
+      '熟悉、平缓的音乐',
+      '雨声、风声等环境声',
+      '更喜欢安静，只要少量提示',
+    ];
     expect(find.byType(SoftChoiceCard), findsNWidgets(4));
     for (final choice in choices) {
       expect(find.text(choice).hitTestable(), findsOneWidget);
@@ -118,7 +135,9 @@ void main() {
     );
 
     expect(find.text('今晚先试试'), findsOneWidget);
-    expect(find.text('长篇女声朗读：《城市之光》'), findsOneWidget);
+    expect(find.text('第一束微光'), findsOneWidget);
+    expect(find.text('试听候选声音'), findsNothing);
+
     Future<void> scrollToHomeAction(String label) async {
       for (var attempt = 0; attempt < 12; attempt++) {
         final target = find.text(label);
@@ -134,7 +153,6 @@ void main() {
       fail('没有找到首页入口：$label');
     }
 
-    await scrollToHomeAction('试听候选声音');
     await scrollToHomeAction('听一段舒缓人声');
     await scrollToHomeAction('夜里醒来时');
     await scrollToHomeAction('醒来以后');
@@ -212,7 +230,7 @@ void main() {
     expect(find.byTooltip('取消收藏'), findsOneWidget);
   });
 
-  testWidgets('候选素材在独立列表中明确标记为待试听', (tester) async {
+  testWidgets('候选素材只在显式评审目录中标记为待试听', (tester) async {
     final directory = Directory.systemTemp.createTempSync(
       'stillow_candidate_library_test_',
     );
@@ -223,7 +241,7 @@ void main() {
       offlineStore.dispose();
       if (directory.existsSync()) directory.deleteSync(recursive: true);
     });
-    final candidate = catalog
+    final candidate = reviewCatalog
         .candidateSessionsFor(ContentRegion.mainlandChina)
         .first;
 
