@@ -211,7 +211,10 @@ void main() {
       expect(study.single.playbackUrl.scheme, 'https');
       expect(study.single.tags, contains('study_drowsy'));
       expect(study.single.tags, contains('role_comfort_only'));
-      expect(catalog.items.any((item) => item.tags.contains('study_drowsy')), isFalse);
+      expect(
+        catalog.items.any((item) => item.tags.contains('study_drowsy')),
+        isFalse,
+      );
 
       final result = catalog.recommend(profile, ContentRegion.mainlandChina);
       expect(result.tags, isNot(contains('study_drowsy')));
@@ -223,9 +226,7 @@ void main() {
 
       expect(learned.tagAffinities['study_drowsy'], 2);
       expect(
-        catalog
-            .recommend(learned, ContentRegion.mainlandChina)
-            .tags,
+        catalog.recommend(learned, ContentRegion.mainlandChina).tags,
         isNot(contains('study_drowsy')),
       );
 
@@ -250,9 +251,7 @@ void main() {
       learned = learned.learnFrom(target, SessionFeedback.notForMe);
       expect(learned.tagAffinities['study_drowsy'], 2);
       expect(
-        catalog
-            .recommend(learned, ContentRegion.mainlandChina)
-            .tags,
+        catalog.recommend(learned, ContentRegion.mainlandChina).tags,
         isNot(contains('study_drowsy')),
       );
     });
@@ -375,7 +374,11 @@ void main() {
         expect(item.durationSeconds, 1500, reason: id);
         expect(item.loop, isFalse, reason: id);
         expect(item.tags, contains('long_form_master'), reason: id);
-        expect(item.tags, isNot(contains('needs_long_form_master')), reason: id);
+        expect(
+          item.tags,
+          isNot(contains('needs_long_form_master')),
+          reason: id,
+        );
       }
     });
 
