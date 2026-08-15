@@ -62,6 +62,48 @@ class AudioScienceAuditTest(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertTrue(any("long-form master" in warning for warning in warnings))
 
+    def test_valid_breathing_pacer_is_separate_support_role(self):
+        root = {
+            "sciencePolicyVersion": 1,
+            "items": [
+                base_item(
+                    id="breathing-a",
+                    kind="breathingPacer",
+                    tags=[
+                        "quiet_mind",
+                        "relax_body",
+                        "breathing",
+                        "low_stimulus",
+                        "role_breathing_pacer",
+                    ],
+                    durationSeconds=1200,
+                )
+            ],
+        }
+        errors, warnings = audit.audit_catalog(root, Path("."))
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+
+    def test_breathing_pacer_rejects_unrelated_sleep_goal(self):
+        root = {
+            "sciencePolicyVersion": 1,
+            "items": [
+                base_item(
+                    id="breathing-a",
+                    kind="breathingPacer",
+                    tags=[
+                        "breathing",
+                        "low_stimulus",
+                        "night_awake",
+                        "role_breathing_pacer",
+                    ],
+                    durationSeconds=1200,
+                )
+            ],
+        }
+        errors, _ = audit.audit_catalog(root, Path("."))
+        self.assertTrue(any("unrelated goal tags" in error for error in errors))
+
     def test_masking_cannot_claim_quiet_mind(self):
         root = {
             "sciencePolicyVersion": 1,
