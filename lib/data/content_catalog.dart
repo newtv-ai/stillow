@@ -18,16 +18,9 @@ class ContentCatalog {
 
   static Future<ContentCatalog> loadAsset({
     String path = 'assets/content/audio_catalog.json',
-    String candidatePath = 'assets/content/audio_candidates.json',
   }) async {
-    final jsonTexts = await Future.wait([
-      rootBundle.loadString(path),
-      rootBundle.loadString(candidatePath),
-    ]);
-    return ContentCatalog.fromJsonString(
-      jsonTexts[0],
-      candidateJsonText: jsonTexts[1],
-    );
+    final jsonText = await rootBundle.loadString(path);
+    return ContentCatalog.fromJsonString(jsonText);
   }
 
   factory ContentCatalog.fromJsonString(
@@ -147,7 +140,6 @@ class ContentCatalog {
                   profile,
                   goal,
                   SleepUseContext.bedtime,
-                  region,
                 ),
               ),
             )
@@ -160,10 +152,23 @@ class ContentCatalog {
     UserProfile profile,
     ContentRegion region,
   ) {
-    final nightSessions = ambientFor(region)
-        .where((session) => session.tags.contains('night_awake'))
+    final allowMasking =
+        profile.supportNeed == SupportNeed.maskNoise ||
+        profile.soundPreference == SoundPreference.nature;
+    final allNightSessions = ambientFor(
+      region,
+    ).where((session) => session.tags.contains('night_awake')).toList();
+    final preferredNightSessions = allNightSessions
+        .where(
+          (session) =>
+              allowMasking || !session.tags.contains('role_masking_only'),
+        )
         .toList(growable: false);
+    final nightSessions = preferredNightSessions.isNotEmpty
+        ? preferredNightSessions
+        : allNightSessions;
     if (nightSessions.isEmpty) return recommend(profile, region);
+
     final ranked =
         nightSessions
             .map(
@@ -174,7 +179,6 @@ class ContentCatalog {
                   profile,
                   'night_awake',
                   SleepUseContext.nightAwake,
-                  region,
                 ),
               ),
             )
@@ -310,31 +314,29 @@ class ContentCatalog {
     if (rawKind == 'spokenKnowledge') {
       return const {
         'candidate',
-        'quiet_mind',
         'gentle_company',
         'spoken_content',
         'lecture',
-        'not_sleepy',
         'low_stimulus',
+        'review_spoken',
       };
     }
     if (rawKind == 'music') {
       return const {
         'candidate',
-        'quiet_mind',
-        'gentle_company',
         'music',
         'ambient',
         'low_stimulus',
+        'review_music',
       };
     }
     return {
       'candidate',
-      'quiet_mind',
       'mask_noise',
       'nature',
       'ambient',
       'low_stimulus',
+      'review_masking',
       'kind:${kind.name}',
     };
   }
@@ -384,25 +386,54 @@ class ContentCatalog {
     UserProfile profile,
     String goal,
     SleepUseContext context,
-    ContentRegion region,
   ) {
     var score = session.priority;
     if (session.tags.contains(goal)) score += 100;
-    if (goal == 'not_sleepy') {
-      if (const {
-        SessionKind.lecture,
-        SessionKind.narrative,
-      }.contains(session.kind)) {
-        score += session.kind == SessionKind.lecture ? 70 : 65;
-        final duration = session.durationSeconds ?? 0;
-        score += duration >= 1800 ? 45 : (duration >= 600 ? 10 : -20);
-        if (region == ContentRegion.mainlandChina &&
-            session.languageCode == 'zh') {
-          score += 60;
-        }
-      }
-      if (session.kind == SessionKind.guidedVoice) score -= 25;
+
+    final trialAlignedMusic = session.tags.contains('role_trial_aligned_music');
+    final guidedRelaxation = session.tags.contains('role_guided_relaxation');
+    final supportingMusic = session.tags.contains('role_supporting_music');
+    final comfortOnly = session.tags.contains('role_comfort_only');
+    final maskingOnly = session.tags.contains('role_masking_only');
+
+    if (trialAlignedMusic &&
+        const {
+          'quiet_mind',
+          'relax_body',
+          'not_sleepy',
+          'sleep_pressure',
+          'night_awake',
+        }.contains(goal)) {
+      score += 30;
     }
+    if (guidedRelaxation &&
+        const {'quiet_mind', 'relax_body'}.contains(goal)) {
+      score += 30;
+    }
+    if (supportingMusic &&
+        const {
+          'quiet_mind',
+          'not_sleepy',
+          'sleep_pressure',
+          'night_awake',
+        }.contains(goal)) {
+      score += 10;
+    }
+
+    if (comfortOnly) {
+      score += goal == 'gentle_company' ? 50 : -90;
+    }
+    if (maskingOnly) {
+      final maskingPreferred =
+          goal == 'mask_noise' ||
+          (goal == 'night_awake' &&
+              (profile.supportNeed == SupportNeed.maskNoise ||
+                  profile.soundPreference == SoundPreference.nature));
+      score += maskingPreferred ? 40 : -80;
+    }
+    if (session.tags.contains('short_loop_risk')) score -= 20;
+    if (session.tags.contains('needs_long_form_master')) score -= 5;
+
     if (goal == 'sleep_pressure') {
       if (session.tags.contains('minimal')) score += 70;
       if (session.tags.contains('guided')) score += 25;
