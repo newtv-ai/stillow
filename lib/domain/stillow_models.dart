@@ -43,6 +43,7 @@ enum SessionKind {
   music,
   narrative,
   lecture,
+  breathingPacer,
 }
 
 class UserProfile {
@@ -303,5 +304,6 @@ class GuidedSession {
     SessionKind.music => Icons.music_note_rounded,
     SessionKind.narrative => Icons.auto_stories_outlined,
     SessionKind.lecture => Icons.school_outlined,
+    SessionKind.breathingPacer => Icons.air_rounded,
   };
 }
