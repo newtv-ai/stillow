@@ -135,12 +135,7 @@ class ContentCatalog {
             .map(
               (session) => (
                 session: session,
-                score: _score(
-                  session,
-                  profile,
-                  goal,
-                  SleepUseContext.bedtime,
-                ),
+                score: _score(session, profile, goal, SleepUseContext.bedtime),
               ),
             )
             .toList(growable: false)
@@ -406,8 +401,7 @@ class ContentCatalog {
         }.contains(goal)) {
       score += 30;
     }
-    if (guidedRelaxation &&
-        const {'quiet_mind', 'relax_body'}.contains(goal)) {
+    if (guidedRelaxation && const {'quiet_mind', 'relax_body'}.contains(goal)) {
       score += 30;
     }
     if (supportingMusic &&
