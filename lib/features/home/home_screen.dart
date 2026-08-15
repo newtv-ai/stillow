@@ -596,7 +596,17 @@ class _FeedbackCardState extends State<_FeedbackCard> {
   Future<void> _choose(SessionFeedback feedback) async {
     if (_saving) return;
     setState(() => _saving = true);
-    await widget.onFeedback(feedback);
+    try {
+      await widget.onFeedback(feedback);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('这次反馈没能保存，可以再试一次。')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
