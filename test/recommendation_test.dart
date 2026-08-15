@@ -202,6 +202,76 @@ void main() {
       }
     });
 
+    test('学习型犯困素材与核心目录隔离，并且冷启动不自动推荐', () {
+      final study = catalog.studyDrowsyFor(ContentRegion.mainlandChina);
+      expect(study, hasLength(1));
+      expect(study.single.id, 'study-zh-wikipedia-2024');
+      expect(study.single.kind, SessionKind.lecture);
+      expect(study.single.playbackType, PlaybackType.directAudio);
+      expect(study.single.playbackUrl.scheme, 'https');
+      expect(study.single.tags, contains('study_drowsy'));
+      expect(study.single.tags, contains('role_comfort_only'));
+      expect(catalog.items.any((item) => item.tags.contains('study_drowsy')), isFalse);
+
+      final result = catalog.recommend(profile, ContentRegion.mainlandChina);
+      expect(result.tags, isNot(contains('study_drowsy')));
+    });
+
+    test('一次正向反馈仍不自动推课程，两次后才按个人经验提高权重', () {
+      final target = catalog.findById('study-zh-wikipedia-2024')!;
+      var learned = profile.learnFrom(target, SessionFeedback.comfortable);
+
+      expect(learned.tagAffinities['study_drowsy'], 2);
+      expect(
+        catalog
+            .recommend(learned, ContentRegion.mainlandChina)
+            .tags,
+        isNot(contains('study_drowsy')),
+      );
+
+      learned = learned.learnFrom(target, SessionFeedback.comfortable);
+      final result = catalog.recommend(learned, ContentRegion.mainlandChina);
+      expect(learned.tagAffinities['study_drowsy'], 4);
+      expect(learned.sessionAffinities[target.id], 6);
+      expect(result.id, target.id);
+      expect(learned.tagAffinities.containsKey('low_pitch_screened'), isFalse);
+    });
+
+    test('学习型犯困偏好可以被后续不适合反馈撤销', () {
+      final target = catalog.findById('study-zh-wikipedia-2024')!;
+      var learned = profile
+          .learnFrom(target, SessionFeedback.comfortable)
+          .learnFrom(target, SessionFeedback.comfortable);
+      expect(
+        catalog.recommend(learned, ContentRegion.mainlandChina).id,
+        target.id,
+      );
+
+      learned = learned.learnFrom(target, SessionFeedback.notForMe);
+      expect(learned.tagAffinities['study_drowsy'], 2);
+      expect(
+        catalog
+            .recommend(learned, ContentRegion.mainlandChina)
+            .tags,
+        isNot(contains('study_drowsy')),
+      );
+    });
+
+    test('国际区额外提供长篇 Logic 技术朗读', () {
+      final study = catalog.studyDrowsyFor(ContentRegion.international);
+      expect(study.map((item) => item.id), contains('study-zh-wikipedia-2024'));
+      expect(study.map((item) => item.id), contains('study-en-logic'));
+      expect(
+        study.every(
+          (item) =>
+              item.durationSeconds != null &&
+              item.durationSeconds! >= 20 * 60 &&
+              item.playbackType == PlaybackType.directAudio,
+        ),
+        isTrue,
+      );
+    });
+
     test('正式启动默认不加载候选库', () {
       expect(catalog.candidates, isEmpty);
       expect(
@@ -209,6 +279,7 @@ void main() {
         isEmpty,
       );
       expect(catalog.items.every((item) => !item.isCandidate), isTrue);
+      expect(catalog.studyItems.every((item) => !item.isCandidate), isTrue);
     });
 
     test('候选目录仅在显式评审模式加载，且不会进入正式推荐', () {
@@ -275,9 +346,14 @@ void main() {
             expect(item.assetPath, isNull, reason: item.id);
         }
       }
+      for (final item in catalog.studyItems) {
+        expect(item.playbackType, PlaybackType.directAudio, reason: item.id);
+        expect(item.playbackUrl.scheme, 'https', reason: item.id);
+        expect(item.assetPath, isNull, reason: item.id);
+      }
     });
 
-    test('精简后的素材全部离线可用，并保留中文人声层次', () {
+    test('精简后的核心素材全部离线可用，并保留中文人声层次', () {
       final china = catalog.sessionsFor(ContentRegion.mainlandChina);
       final international = catalog.sessionsFor(ContentRegion.international);
       expect(china.length, 10);
@@ -291,6 +367,16 @@ void main() {
       );
       expect(catalog.spokenFor(ContentRegion.mainlandChina).length, 4);
       expect(catalog.spokenFor(ContentRegion.international).length, 5);
+    });
+
+    test('核心两条试验范式音乐已经是长版 master', () {
+      for (final id in ['music-first-light', 'music-contemplation']) {
+        final item = catalog.findById(id)!;
+        expect(item.durationSeconds, 1500, reason: id);
+        expect(item.loop, isFalse, reason: id);
+        expect(item.tags, contains('long_form_master'), reason: id);
+        expect(item.tags, isNot(contains('needs_long_form_master')), reason: id);
+      }
     });
 
     test('首次选择中的每种声音和引导偏好都有真实可播放内容', () {
@@ -401,6 +487,7 @@ void main() {
         isFalse,
       );
       expect(learned.tagAffinities.containsKey('short_loop_risk'), isFalse);
+      expect(learned.tagAffinities.containsKey('long_form_master'), isFalse);
     });
 
     test('不适合的反馈会跨越下一次使用继续降低同类和单条权重', () {
