@@ -1,11 +1,14 @@
 {
   "schemaVersion": 5,
   "updatedAt": "2026-08-15",
+  "sciencePolicyVersion": 1,
   "items": [
     {
       "id": "guided-body-scan-female-en",
       "enabled": true,
-      "regions": ["INTL"],
+      "regions": [
+        "INTL"
+      ],
       "provider": "usDepartmentVeteransAffairs",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/guided-body-scan-female-en.m4a",
@@ -23,7 +26,15 @@
       "shortLabel": "女声引导 · 约22分钟",
       "kind": "guidedVoice",
       "languageCode": "en",
-      "tags": ["relax_body", "quiet_mind", "gentle_company", "soft_voice", "guided", "low_stimulus", "evidence_guided_relaxation"],
+      "tags": [
+        "relax_body",
+        "quiet_mind",
+        "gentle_company",
+        "soft_voice",
+        "guided",
+        "low_stimulus",
+        "role_guided_relaxation"
+      ],
       "durationSeconds": 1320,
       "loop": false,
       "priority": 92
@@ -31,7 +42,10 @@
     {
       "id": "music-first-light",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "openGameArt",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/music-first-light.m4a",
@@ -49,7 +63,19 @@
       "shortLabel": "轻音乐 · 循环播放",
       "kind": "music",
       "languageCode": "zxx",
-      "tags": ["quiet_mind", "gentle_company", "not_sleepy", "music", "ambient", "minimal", "low_stimulus", "night_awake", "evidence_music", "needs_long_form_master"],
+      "tags": [
+        "quiet_mind",
+        "gentle_company",
+        "not_sleepy",
+        "music",
+        "ambient",
+        "minimal",
+        "low_stimulus",
+        "night_awake",
+        "instrumental",
+        "role_trial_aligned_music",
+        "needs_long_form_master"
+      ],
       "durationSeconds": 132,
       "loop": true,
       "priority": 91
@@ -57,7 +83,10 @@
     {
       "id": "music-contemplation",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "openGameArt",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/music-contemplation.m4a",
@@ -75,7 +104,20 @@
       "shortLabel": "环境音乐 · 循环播放",
       "kind": "music",
       "languageCode": "zxx",
-      "tags": ["quiet_mind", "relax_body", "gentle_company", "not_sleepy", "music", "ambient", "minimal", "low_stimulus", "night_awake", "evidence_music", "needs_long_form_master"],
+      "tags": [
+        "quiet_mind",
+        "relax_body",
+        "gentle_company",
+        "not_sleepy",
+        "music",
+        "ambient",
+        "minimal",
+        "low_stimulus",
+        "night_awake",
+        "instrumental",
+        "role_trial_aligned_music",
+        "needs_long_form_master"
+      ],
       "durationSeconds": 120,
       "loop": true,
       "priority": 89
@@ -83,11 +125,14 @@
     {
       "id": "music-soft-piano-loop",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "openGameArt",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/music-soft-piano-loop.m4a",
-      "sha256": "3b7133cec837c855e66556571e7fa48394450518caef5cda69022dfea2120",
+      "sha256": "3b7133cec837c855e66556571e7fa48394450518caef5e36a73289a8845ba3a2",
       "adFree": true,
       "rightsStatus": "cc0",
       "playbackUrl": "https://opengameart.org/sites/default/files/JRPG%20Piano.mp3",
@@ -101,15 +146,31 @@
       "shortLabel": "钢琴 · 循环播放",
       "kind": "music",
       "languageCode": "zxx",
-      "tags": ["quiet_mind", "gentle_company", "not_sleepy", "music", "ambient", "minimal", "low_stimulus", "night_awake", "evidence_music", "needs_long_form_master", "short_loop_risk"],
+      "tags": [
+        "quiet_mind",
+        "gentle_company",
+        "not_sleepy",
+        "music",
+        "ambient",
+        "minimal",
+        "low_stimulus",
+        "night_awake",
+        "instrumental",
+        "role_supporting_music",
+        "needs_long_form_master",
+        "short_loop_risk"
+      ],
       "durationSeconds": 25,
       "loop": true,
-      "priority": 70
+      "priority": 82
     },
     {
       "id": "narrative-city-lights-zh",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "wikimediaCommons",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/narrative-city-lights-zh.m4a",
@@ -127,15 +188,25 @@
       "shortLabel": "中文女声 · 约36分钟",
       "kind": "narrative",
       "languageCode": "zh",
-      "tags": ["gentle_company", "soft_voice", "narrative", "spoken_content", "low_stimulus", "comfort_only"],
+      "tags": [
+        "gentle_company",
+        "soft_voice",
+        "narrative",
+        "spoken_content",
+        "low_stimulus",
+        "role_comfort_only"
+      ],
       "durationSeconds": 2160,
       "loop": false,
-      "priority": -10
+      "priority": 96
     },
     {
       "id": "narrative-cong-cong-zh",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "librivox",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/narrative-cong-cong-zh.mp3",
@@ -153,15 +224,24 @@
       "shortLabel": "中文女声 · 约4分钟",
       "kind": "narrative",
       "languageCode": "zh",
-      "tags": ["gentle_company", "soft_voice", "narrative", "low_stimulus", "comfort_only"],
+      "tags": [
+        "gentle_company",
+        "soft_voice",
+        "narrative",
+        "low_stimulus",
+        "role_comfort_only"
+      ],
       "durationSeconds": 228,
       "loop": false,
-      "priority": 15
+      "priority": 88
     },
     {
       "id": "narrative-ge-sheng-zh",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "librivox",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/narrative-ge-sheng-zh.mp3",
@@ -179,15 +259,24 @@
       "shortLabel": "中文女声 · 约3分钟",
       "kind": "narrative",
       "languageCode": "zh",
-      "tags": ["gentle_company", "soft_voice", "narrative", "low_stimulus", "comfort_only"],
+      "tags": [
+        "gentle_company",
+        "soft_voice",
+        "narrative",
+        "low_stimulus",
+        "role_comfort_only"
+      ],
       "durationSeconds": 189,
       "loop": false,
-      "priority": 10
+      "priority": 84
     },
     {
       "id": "spoken-mosquito-life-zh",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "wikimediaCommons",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/spoken-mosquito-life-zh.m4a",
@@ -205,15 +294,26 @@
       "shortLabel": "中文女声 · 约13分钟",
       "kind": "lecture",
       "languageCode": "zh",
-      "tags": ["gentle_company", "soft_voice", "lecture", "science", "spoken_content", "low_stimulus", "comfort_only"],
+      "tags": [
+        "gentle_company",
+        "soft_voice",
+        "lecture",
+        "science",
+        "spoken_content",
+        "low_stimulus",
+        "role_comfort_only"
+      ],
       "durationSeconds": 802,
       "loop": false,
-      "priority": 0
+      "priority": 90
     },
     {
       "id": "intl-brown-noise",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "internetArchive",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/brown-noise.m4a",
@@ -227,11 +327,17 @@
       "licenseName": "Public Domain Mark 1.0 · AAC re-encode and loudness adjustment",
       "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
       "title": "低低的棕噪音",
-      "subtitle": "稳定的低频底噪适合遮住环境动静，保持均匀循环。",
+      "subtitle": "稳定低频底噪，用于遮住环境动静；默认定时淡出，不作为普适助眠结论。",
       "shortLabel": "棕噪音 · 循环播放",
       "kind": "brownNoise",
       "languageCode": "zxx",
-      "tags": ["mask_noise", "minimal", "ambient", "night_awake", "masking_contextual"],
+      "tags": [
+        "mask_noise",
+        "minimal",
+        "ambient",
+        "night_awake",
+        "role_masking_only"
+      ],
       "durationSeconds": 150,
       "loop": true,
       "priority": 93
@@ -239,7 +345,10 @@
     {
       "id": "intl-midnight-ocean",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "internetArchive",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/midnight-ocean.m4a",
@@ -253,11 +362,18 @@
       "licenseName": "Public Domain Mark 1.0 · AAC re-encode and loudness adjustment",
       "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
       "title": "午夜海浪",
-      "subtitle": "重复而自然的夜间浪声，声音起伏经过校准，适合长时间循环。",
+      "subtitle": "重复而自然的夜间浪声，适合喜欢自然声或需要遮住环境动静时使用。",
       "shortLabel": "海浪 · 循环播放",
       "kind": "ocean",
       "languageCode": "zxx",
-      "tags": ["mask_noise", "gentle_company", "nature", "ambient", "night_awake", "masking_contextual"],
+      "tags": [
+        "mask_noise",
+        "gentle_company",
+        "nature",
+        "ambient",
+        "night_awake",
+        "role_masking_only"
+      ],
       "durationSeconds": 354,
       "loop": true,
       "priority": 90
@@ -265,7 +381,10 @@
     {
       "id": "intl-gentle-rain",
       "enabled": true,
-      "regions": ["CN", "INTL"],
+      "regions": [
+        "CN",
+        "INTL"
+      ],
       "provider": "internetArchive",
       "playbackType": "assetAudio",
       "assetPath": "assets/audio/gentle-rain.m4a",
@@ -279,11 +398,18 @@
       "licenseName": "CC0 1.0 · AAC re-encode and loudness adjustment",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "title": "细密的雨声",
-      "subtitle": "均匀、连续的雨声，响度经过校准，保持平稳循环。",
+      "subtitle": "均匀连续的雨声，用于遮住环境动静；短循环素材仍需继续检查循环感。",
       "shortLabel": "轻雨 · 循环播放",
       "kind": "rain",
       "languageCode": "zxx",
-      "tags": ["mask_noise", "nature", "ambient", "night_awake", "masking_contextual"],
+      "tags": [
+        "mask_noise",
+        "nature",
+        "ambient",
+        "night_awake",
+        "role_masking_only",
+        "short_loop_risk"
+      ],
       "durationSeconds": 52,
       "loop": true,
       "priority": 88
