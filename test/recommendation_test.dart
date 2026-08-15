@@ -164,6 +164,7 @@ void main() {
         'role_guided_relaxation',
         'role_trial_aligned_music',
         'role_supporting_music',
+        'role_breathing_pacer',
         'role_masking_only',
         'role_comfort_only',
       };
@@ -177,6 +178,13 @@ void main() {
           expect(item.tags, isNot(contains('quiet_mind')), reason: item.id);
           expect(item.tags, isNot(contains('relax_body')), reason: item.id);
           expect(item.tags, isNot(contains('not_sleepy')), reason: item.id);
+        }
+
+        if (roles.contains('role_breathing_pacer')) {
+          expect(item.kind, SessionKind.breathingPacer, reason: item.id);
+          expect(item.tags, contains('breathing'), reason: item.id);
+          expect(item.tags, contains('low_stimulus'), reason: item.id);
+          expect(item.tags, isNot(contains('night_awake')), reason: item.id);
         }
 
         if (roles.contains('role_comfort_only')) {
@@ -355,9 +363,9 @@ void main() {
     test('精简后的核心素材全部离线可用，并保留中文人声层次', () {
       final china = catalog.sessionsFor(ContentRegion.mainlandChina);
       final international = catalog.sessionsFor(ContentRegion.international);
-      expect(china.length, 10);
-      expect(international.length, 11);
-      expect(catalog.items.length, 11);
+      expect(china.length, 11);
+      expect(international.length, 12);
+      expect(catalog.items.length, 12);
       expect(
         catalog.items.every(
           (item) => item.playbackType == PlaybackType.assetAudio,
@@ -380,6 +388,19 @@ void main() {
           reason: id,
         );
       }
+    });
+
+    test('慢呼吸节拍独立存在，不冒充音乐或夜醒素材', () {
+      final item = catalog.findById('breathing-coherent-gong')!;
+      expect(item.kind, SessionKind.breathingPacer);
+      expect(item.durationSeconds, 1200);
+      expect(item.loop, isFalse);
+      expect(item.tags, contains('role_breathing_pacer'));
+      expect(item.tags, contains('breathing'));
+      expect(item.tags, contains('quiet_mind'));
+      expect(item.tags, contains('relax_body'));
+      expect(item.tags, isNot(contains('night_awake')));
+      expect(item.rightsStatus, 'cc0');
     });
 
     test('首次选择中的每种声音和引导偏好都有真实可播放内容', () {
