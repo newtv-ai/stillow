@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-15",
+  "purpose": "Optional low-arousal knowledge content for users who personally become sleepy while studying. Never treat these items as a universal sleep intervention.",
+  "items": [
+    {
+      "id": "study-zh-wikipedia-2024",
+      "enabled": true,
+      "regions": [
+        "CN",
+        "INTL"
+      ],
+      "provider": "wikimediaCommons",
+      "playbackType": "directAudio",
+      "adFree": true,
+      "rightsStatus": "ccBySa",
+      "playbackUrl": "https://upload.wikimedia.org/wikipedia/commons/transcoded/0/0c/Zh-%E4%B8%AD%E6%96%87%E7%B6%AD%E5%9F%BA%E7%99%BE%E7%A7%91-2024.ogg/Zh-%E4%B8%AD%E6%96%87%E7%B6%AD%E5%9F%BA%E7%99%BE%E7%A7%91-2024.ogg.mp3",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Zh-%E4%B8%AD%E6%96%87%E7%B6%AD%E5%9F%BA%E7%99%BE%E7%A7%91-2024.ogg",
+      "sourceTitle": "中文維基百科（2024 有声条目）",
+      "creator": "Lilauid 与中文维基百科条目贡献者",
+      "licenseName": "CC BY-SA 4.0 · Wikimedia MP3 transcode",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "title": "容易走神的知识：中文维基百科",
+      "subtitle": "普通话男声，约 39 分钟。内容偏历史、社区与运作；不会默认推荐，只按你的实际体验学习。",
+      "shortLabel": "低调门知识 · 男声 · 约39分钟",
+      "kind": "lecture",
+      "languageCode": "zh",
+      "tags": [
+        "spoken_content",
+        "lecture",
+        "study_drowsy",
+        "low_stimulus",
+        "low_pitch_screened",
+        "role_comfort_only"
+      ],
+      "durationSeconds": 2321,
+      "loop": false,
+      "priority": 62
+    },
+    {
+      "id": "study-en-logic",
+      "enabled": true,
+      "regions": [
+        "INTL"
+      ],
+      "provider": "wikimediaCommons",
+      "playbackType": "directAudio",
+      "adFree": true,
+      "rightsStatus": "ccBySa",
+      "playbackUrl": "https://upload.wikimedia.org/wikipedia/commons/transcoded/d/d5/En-Logic-article.ogg/En-Logic-article.ogg.mp3",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:En-Logic-article.ogg",
+      "sourceTitle": "Logic (spoken Wikipedia article)",
+      "creator": "Thrownfootfalls 与 Wikipedia 条目贡献者",
+      "licenseName": "CC BY-SA 3.0 · Wikimedia MP3 transcode",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "title": "容易走神的知识：Logic",
+      "subtitle": "苏格兰英语男声，约 69 分钟。形式逻辑与哲学逻辑长篇朗读，只在你主动选择或反馈有效后提高权重。",
+      "shortLabel": "技术知识 · 男声 · 约69分钟",
+      "kind": "lecture",
+      "languageCode": "en",
+      "tags": [
+        "spoken_content",
+        "lecture",
+        "study_drowsy",
+        "low_stimulus",
+        "low_pitch_screened",
+        "role_comfort_only"
+      ],
+      "durationSeconds": 4115,
+      "loop": false,
+      "priority": 56
+    }
+  ]
+}
