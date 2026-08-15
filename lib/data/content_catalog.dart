@@ -182,10 +182,7 @@ class ContentCatalog {
     final affinity = profile.tagAffinities['study_drowsy'] ?? 0;
     if (affinity < 4) return const [];
     return studyDrowsyFor(region)
-        .where(
-          (session) =>
-              affinity >= 6 || (profile.sessionAffinities[session.id] ?? 0) > 0,
-        )
+        .where((session) => (profile.sessionAffinities[session.id] ?? 0) >= 6)
         .toList(growable: false);
   }
 
