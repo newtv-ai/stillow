@@ -8,23 +8,34 @@ class ContentCatalog {
   ContentCatalog({
     required this.schemaVersion,
     required List<GuidedSession> items,
+    List<GuidedSession> studyItems = const [],
     List<GuidedSession> candidates = const [],
   }) : items = List.unmodifiable(items),
+       studyItems = List.unmodifiable(studyItems),
        candidates = List.unmodifiable(candidates);
 
   final int schemaVersion;
   final List<GuidedSession> items;
+  final List<GuidedSession> studyItems;
   final List<GuidedSession> candidates;
 
   static Future<ContentCatalog> loadAsset({
     String path = 'assets/content/audio_catalog.json',
+    String studyPath = 'assets/content/study_drowsy_catalog.json',
   }) async {
-    final jsonText = await rootBundle.loadString(path);
-    return ContentCatalog.fromJsonString(jsonText);
+    final jsonTexts = await Future.wait([
+      rootBundle.loadString(path),
+      rootBundle.loadString(studyPath),
+    ]);
+    return ContentCatalog.fromJsonString(
+      jsonTexts[0],
+      studyJsonText: jsonTexts[1],
+    );
   }
 
   factory ContentCatalog.fromJsonString(
     String jsonText, {
+    String? studyJsonText,
     String? candidateJsonText,
   }) {
     final root = jsonDecode(jsonText) as Map<String, dynamic>;
@@ -37,6 +48,9 @@ class ContentCatalog {
       throw const FormatException('音频素材目录不能为空');
     }
 
+    final studyItems = studyJsonText == null
+        ? const <GuidedSession>[]
+        : _regularSessionsFromJson(studyJsonText);
     final candidates = candidateJsonText == null
         ? const <GuidedSession>[]
         : _candidateSessionsFromJson(candidateJsonText);
@@ -44,6 +58,7 @@ class ContentCatalog {
     return ContentCatalog(
       schemaVersion: root['schemaVersion'] as int? ?? 1,
       items: items,
+      studyItems: studyItems,
       candidates: candidates,
     );
   }
@@ -63,6 +78,20 @@ class ContentCatalog {
   List<GuidedSession> coursesFor(ContentRegion region) => sessionsFor(
     region,
   ).where((session) => session.kind == SessionKind.lecture).toList();
+
+  List<GuidedSession> studyDrowsyFor(ContentRegion region) {
+    final result =
+        studyItems
+            .where(
+              (item) =>
+                  item.isPlaybackEligible &&
+                  item.regions.contains(region) &&
+                  item.tags.contains('study_drowsy'),
+            )
+            .toList(growable: false)
+          ..sort((a, b) => b.priority.compareTo(a.priority));
+    return result;
+  }
 
   List<GuidedSession> spokenFor(ContentRegion region) => sessionsFor(region)
       .where(
@@ -110,7 +139,7 @@ class ContentCatalog {
 
   GuidedSession? findById(String? id) {
     if (id == null) return null;
-    for (final session in [...items, ...candidates]) {
+    for (final session in [...items, ...studyItems, ...candidates]) {
       if (session.id == id) return session;
     }
     return null;
@@ -124,7 +153,10 @@ class ContentCatalog {
     if (state == NightState.nightAwake) {
       return recommendNightRescue(profile, region);
     }
-    final available = sessionsFor(region);
+    final available = [
+      ...sessionsFor(region),
+      ..._personalizedStudyFor(profile, region),
+    ];
     if (available.isEmpty) {
       throw StateError('当前地区没有可用素材');
     }
@@ -141,6 +173,20 @@ class ContentCatalog {
             .toList(growable: false)
           ..sort((a, b) => b.score.compareTo(a.score));
     return ranked.first.session;
+  }
+
+  List<GuidedSession> _personalizedStudyFor(
+    UserProfile profile,
+    ContentRegion region,
+  ) {
+    final affinity = profile.tagAffinities['study_drowsy'] ?? 0;
+    if (affinity < 4) return const [];
+    return studyDrowsyFor(region)
+        .where(
+          (session) =>
+              affinity >= 6 || (profile.sessionAffinities[session.id] ?? 0) > 0,
+        )
+        .toList(growable: false);
   }
 
   GuidedSession recommendNightRescue(
@@ -180,6 +226,14 @@ class ContentCatalog {
             .toList(growable: false)
           ..sort((a, b) => b.score.compareTo(a.score));
     return ranked.first.session;
+  }
+
+  static List<GuidedSession> _regularSessionsFromJson(String jsonText) {
+    final root = jsonDecode(jsonText) as Map<String, dynamic>;
+    final rawItems = root['items'] as List<dynamic>? ?? const [];
+    return rawItems
+        .map((item) => _sessionFromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
   static GuidedSession _sessionFromJson(Map<String, dynamic> json) {
@@ -390,6 +444,7 @@ class ContentCatalog {
     final supportingMusic = session.tags.contains('role_supporting_music');
     final comfortOnly = session.tags.contains('role_comfort_only');
     final maskingOnly = session.tags.contains('role_masking_only');
+    final studyDrowsy = session.tags.contains('study_drowsy');
 
     if (trialAlignedMusic &&
         const {
@@ -414,7 +469,10 @@ class ContentCatalog {
       score += 10;
     }
 
-    if (comfortOnly) {
+    if (studyDrowsy) {
+      final affinity = profile.tagAffinities['study_drowsy'] ?? 0;
+      score += affinity < 4 ? -300 : 110 + affinity * 12;
+    } else if (comfortOnly) {
       score += goal == 'gentle_company' ? 50 : -90;
     }
     if (maskingOnly) {
