@@ -31,6 +31,30 @@ def base_item(**overrides):
     return item
 
 
+def study_item(**overrides):
+    item = {
+        "id": "study-a",
+        "enabled": True,
+        "kind": "lecture",
+        "playbackType": "directAudio",
+        "playbackUrl": "https://example.test/audio.mp3",
+        "sourcePage": "https://example.test/source",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "adFree": True,
+        "rightsStatus": "ccBySa",
+        "tags": [
+            "spoken_content",
+            "study_drowsy",
+            "low_stimulus",
+            "low_pitch_screened",
+            "role_comfort_only",
+        ],
+        "durationSeconds": 1800,
+    }
+    item.update(overrides)
+    return item
+
+
 class AudioScienceAuditTest(unittest.TestCase):
     def test_trial_aligned_short_music_is_warning_not_error(self):
         root = {"sciencePolicyVersion": 1, "items": [base_item()]}
@@ -67,6 +91,46 @@ class AudioScienceAuditTest(unittest.TestCase):
         }
         errors, _ = audit.audit_catalog(root, Path("."))
         self.assertTrue(any("core goal tags" in error for error in errors))
+
+    def test_study_content_is_not_allowed_in_core_catalog(self):
+        root = {
+            "sciencePolicyVersion": 1,
+            "items": [
+                base_item(
+                    id="study-in-core",
+                    kind="lecture",
+                    tags=["study_drowsy", "role_comfort_only"],
+                    durationSeconds=1800,
+                )
+            ],
+        }
+        errors, _ = audit.audit_catalog(root, Path("."))
+        self.assertTrue(any("study_drowsy content belongs" in error for error in errors))
+
+    def test_valid_personalized_study_content_passes(self):
+        errors, warnings = audit.audit_study_catalog({"items": [study_item()]})
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+
+    def test_study_content_cannot_claim_core_sleep_goal(self):
+        item = study_item()
+        item["tags"] = [*item["tags"], "quiet_mind"]
+        errors, _ = audit.audit_study_catalog({"items": [item]})
+        self.assertTrue(any("must not claim core goals" in error for error in errors))
+
+    def test_study_content_requires_reusable_rights_and_long_duration(self):
+        errors, _ = audit.audit_study_catalog(
+            {
+                "items": [
+                    study_item(
+                        rightsStatus="unknown",
+                        durationSeconds=300,
+                    )
+                ]
+            }
+        )
+        self.assertTrue(any("reusable commercial rights" in error for error in errors))
+        self.assertTrue(any("at least 15 minutes" in error for error in errors))
 
     def test_bundled_sha_is_verified(self):
         with tempfile.TemporaryDirectory() as tmp:
