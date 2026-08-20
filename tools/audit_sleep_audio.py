@@ -274,11 +274,14 @@ def audit_candidates(root: dict[str, Any]) -> tuple[list[str], list[str], Counte
     if not isinstance(items, list):
         return ["audio_candidates.json items must be a list"], warnings, counts
 
-    purpose = str(root.get("purpose") or "").casefold()
-    if "must not load or play" not in purpose:
-        warnings.append(
-            "candidate purpose no longer explicitly says the app must not load/play it"
-        )
+    criteria = root.get("criteria")
+    if not isinstance(criteria, dict):
+        errors.append("audio_candidates.json criteria must be an object")
+    else:
+        if criteria.get("completeListeningReviewRequired") is not True:
+            errors.append("candidate queue must require a complete listening review")
+        if criteria.get("automaticPromotionToAudioCatalog") is not False:
+            errors.append("candidate queue must disable automatic catalog promotion")
 
     for raw in items:
         if not isinstance(raw, dict):
@@ -296,7 +299,7 @@ def audit_candidates(root: dict[str, Any]) -> tuple[list[str], list[str], Counte
             )
 
         if raw.get("enabled") is True:
-            errors.append(f"{item_id}: candidate queue must not mark items enabled")
+            errors.append(f"{item_id}: candidate queue must not mark items approved")
 
     return errors, warnings, counts
 

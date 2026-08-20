@@ -55,6 +55,24 @@ def study_item(**overrides):
     return item
 
 
+def candidate_root(**criteria_overrides):
+    criteria = {
+        "completeListeningReviewRequired": True,
+        "automaticPromotionToAudioCatalog": False,
+    }
+    criteria.update(criteria_overrides)
+    return {
+        "criteria": criteria,
+        "items": [
+            {
+                "id": "candidate-a",
+                "kind": "music",
+                "reviewStatus": "unreviewed",
+            }
+        ],
+    }
+
+
 class AudioScienceAuditTest(unittest.TestCase):
     def test_trial_aligned_short_music_is_warning_not_error(self):
         root = {"sciencePolicyVersion": 1, "items": [base_item()]}
@@ -190,6 +208,18 @@ class AudioScienceAuditTest(unittest.TestCase):
             root = {"sciencePolicyVersion": 1, "items": [item]}
             errors, _ = audit.audit_catalog(root, root_dir)
             self.assertTrue(any("sha256 mismatch" in error for error in errors))
+
+    def test_candidate_queue_requires_manual_review_and_no_auto_promotion(self):
+        errors, warnings, counts = audit.audit_candidates(candidate_root())
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        self.assertEqual(counts["music"], 1)
+
+    def test_candidate_queue_rejects_automatic_promotion(self):
+        errors, _, _ = audit.audit_candidates(
+            candidate_root(automaticPromotionToAudioCatalog=True)
+        )
+        self.assertTrue(any("disable automatic catalog promotion" in error for error in errors))
 
 
 if __name__ == "__main__":

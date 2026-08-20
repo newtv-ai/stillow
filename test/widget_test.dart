@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stillow/app.dart';
 import 'package:stillow/data/content_catalog.dart';
@@ -19,20 +18,9 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ContentCatalog catalog;
-  late ContentCatalog reviewCatalog;
 
   setUpAll(() async {
     catalog = await ContentCatalog.loadAsset();
-    final catalogText = await rootBundle.loadString(
-      'assets/content/audio_catalog.json',
-    );
-    final candidateText = await File(
-      'assets/content/audio_candidates.json',
-    ).readAsString();
-    reviewCatalog = ContentCatalog.fromJsonString(
-      catalogText,
-      candidateJsonText: candidateText,
-    );
   });
 
   testWidgets('新用户可以轻松完成三步首次选择', (tester) async {
@@ -131,7 +119,6 @@ void main() {
 
     expect(find.text('今晚先试试'), findsOneWidget);
     expect(find.text('第一束微光'), findsOneWidget);
-    expect(find.text('试听候选声音'), findsNothing);
 
     Future<void> scrollToHomeAction(String label) async {
       for (var attempt = 0; attempt < 12; attempt++) {
@@ -148,7 +135,9 @@ void main() {
       fail('没有找到首页入口：$label');
     }
 
+    await scrollToHomeAction('试听候选声音');
     await scrollToHomeAction('听一段舒缓人声');
+    await scrollToHomeAction('听一段平缓的知识');
     await scrollToHomeAction('夜里醒来时');
     await scrollToHomeAction('醒来以后');
     await scrollToHomeAction('最近的夜晚');
@@ -236,7 +225,7 @@ void main() {
       offlineStore.dispose();
       if (directory.existsSync()) directory.deleteSync(recursive: true);
     });
-    final candidate = reviewCatalog
+    final candidate = catalog
         .candidateSessionsFor(ContentRegion.mainlandChina)
         .first;
 

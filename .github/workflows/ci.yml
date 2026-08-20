@@ -43,7 +43,11 @@ jobs:
         run: flutter test
 
       - name: Run audio-tool unit tests
-        run: python -m unittest tools/test_audit_sleep_audio.py tools/test_build_audio_candidates.py
+        run: >-
+          python -m unittest
+          tools/test_audit_sleep_audio.py
+          tools/test_build_audio_candidates.py
+          tools/test_build_sleep_masters.py
 
       - name: Audit approved sleep audio
         run: python tools/audit_sleep_audio.py

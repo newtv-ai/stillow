@@ -1187,7 +1187,10 @@ def build_payload(candidates: list[dict[str, Any]], *, limit: int, args: argpars
             "script": "tools/build_audio_candidates.py",
             "version": SCRIPT_VERSION,
         },
-        "purpose": "Review queue only; the app must not load or play this file directly.",
+        "purpose": (
+            "Explicit in-app listening queue only; every item remains unreviewed "
+            "and must never enter automatic recommendations."
+        ),
         "criteria": {
             "acceptedLicenses": list(ACCEPTED_LICENSE_LABELS),
             "minimumSpokenDurationSeconds": args.min_spoken_minutes * 60,

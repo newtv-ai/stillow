@@ -5,7 +5,7 @@
     "script": "tools/build_audio_candidates.py",
     "version": "1.0.0"
   },
-  "purpose": "Review queue only; the app must not load or play this file directly.",
+  "purpose": "Explicit in-app listening queue only; every item remains unreviewed and must never enter automatic recommendations.",
   "criteria": {
     "acceptedLicenses": [
       "CC0",

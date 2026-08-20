@@ -233,8 +233,8 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _QuietAction(
                       icon: Icons.menu_book_outlined,
-                      title: '听点容易走神的知识',
-                      subtitle: '有人一学习就犯困；这里不假定有效，只按你的反馈慢慢学习',
+                      title: '听一段平缓的知识',
+                      subtitle: '课程、百科与技术朗读，按声音和篇幅挑一段',
                       onTap: () async {
                         final session = await Navigator.of(context)
                             .push<GuidedSession>(
@@ -245,9 +245,8 @@ class HomeScreen extends StatelessWidget {
                                       profile.favoriteSessionIds,
                                   onFavoriteChanged: onFavoriteChanged,
                                   offlineAudioStore: offlineAudioStore,
-                                  title: '低起伏知识',
-                                  subtitle:
-                                      '这些内容不是通用助眠法。你主动选择后，如果多次觉得有帮助，Stillow 才会逐渐提高它的个人推荐权重。',
+                                  title: '知识陪伴',
+                                  subtitle: '选择更喜欢的声音、主题和篇幅。',
                                 ),
                               ),
                             );

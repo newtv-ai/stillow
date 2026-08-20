@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -120,7 +121,7 @@ def _catalog_item() -> dict[str, object]:
         "licenseName": "CC0 1.0 · 20-minute AAC breathing-pacer master",
         "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
         "title": "慢慢呼吸 · 5 秒吸 / 5 秒呼",
-        "subtitle": "低沉锣声提供约 20 分钟节拍。只在舒服时跟随，不用憋气；头晕、气短或不适时回到自然呼吸。",
+        "subtitle": "低沉锣声提供约 20 分钟的缓慢节拍。保持自然呼吸；出现头晕、气短或其他不适时暂停播放。",
         "shortLabel": "呼吸节拍 · 约20分钟",
         "kind": "breathingPacer",
         "languageCode": "zxx",
@@ -157,7 +158,7 @@ def _update_catalog() -> None:
         items.insert(insertion_index, replacement)
 
     root["schemaVersion"] = max(int(root.get("schemaVersion", 1)), 7)
-    root["updatedAt"] = "2026-08-15"
+    root["updatedAt"] = datetime.now(timezone.utc).date().isoformat()
     with CATALOG_PATH.open("w", encoding="utf-8") as handle:
         json.dump(root, handle, ensure_ascii=False, indent=2)
         handle.write("\n")

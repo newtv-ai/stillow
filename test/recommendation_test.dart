@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stillow/data/content_catalog.dart';
@@ -8,20 +6,9 @@ import 'package:stillow/domain/stillow_models.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ContentCatalog catalog;
-  late ContentCatalog reviewCatalog;
 
   setUpAll(() async {
     catalog = await ContentCatalog.loadAsset();
-    final catalogText = await rootBundle.loadString(
-      'assets/content/audio_catalog.json',
-    );
-    final candidateText = await File(
-      'assets/content/audio_candidates.json',
-    ).readAsString();
-    reviewCatalog = ContentCatalog.fromJsonString(
-      catalogText,
-      candidateJsonText: candidateText,
-    );
   });
 
   group('ContentCatalog.recommend', () {
@@ -317,18 +304,19 @@ void main() {
       );
     });
 
-    test('正式启动默认不加载候选库', () {
-      expect(catalog.candidates, isEmpty);
+    test('正式启动加载独立候选试听库，但不混入正式目录', () {
+      expect(catalog.candidates.length, greaterThan(100));
       expect(
         catalog.candidateSessionsFor(ContentRegion.mainlandChina),
-        isEmpty,
+        isNotEmpty,
       );
       expect(catalog.items.every((item) => !item.isCandidate), isTrue);
       expect(catalog.studyItems.every((item) => !item.isCandidate), isTrue);
+      expect(catalog.candidates.every((item) => item.isCandidate), isTrue);
     });
 
-    test('候选目录仅在显式评审模式加载，且不会进入正式推荐', () {
-      final candidates = reviewCatalog.candidateSessionsFor(
+    test('候选试听库可播放，但不会进入正式推荐', () {
+      final candidates = catalog.candidateSessionsFor(
         ContentRegion.mainlandChina,
       );
       expect(candidates.length, greaterThan(100));
@@ -352,7 +340,7 @@ void main() {
         isTrue,
       );
       expect(
-        reviewCatalog
+        catalog
             .recommend(
               const UserProfile(onboardingComplete: true),
               ContentRegion.mainlandChina,
@@ -363,7 +351,7 @@ void main() {
     });
 
     test('Wikimedia 中文候选使用 iOS 和 Android 都可播放的 MP3 转码', () {
-      final wikimedia = reviewCatalog.candidates.where(
+      final wikimedia = catalog.candidates.where(
         (item) => item.provider == 'wikimediaCommons',
       );
       expect(wikimedia, isNotEmpty);

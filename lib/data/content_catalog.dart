@@ -22,14 +22,17 @@ class ContentCatalog {
   static Future<ContentCatalog> loadAsset({
     String path = 'assets/content/audio_catalog.json',
     String studyPath = 'assets/content/study_drowsy_catalog.json',
+    String candidatePath = 'assets/content/audio_candidates.json',
   }) async {
     final jsonTexts = await Future.wait([
       rootBundle.loadString(path),
       rootBundle.loadString(studyPath),
+      rootBundle.loadString(candidatePath),
     ]);
     return ContentCatalog.fromJsonString(
       jsonTexts[0],
       studyJsonText: jsonTexts[1],
+      candidateJsonText: jsonTexts[2],
     );
   }
 

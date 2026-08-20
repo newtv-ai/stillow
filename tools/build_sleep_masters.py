@@ -12,24 +12,27 @@ import hashlib
 import json
 import math
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CATALOG_PATH = PROJECT_ROOT / "assets" / "content" / "audio_catalog.json"
 TARGET_SECONDS = 25 * 60
 CROSSFADE_SECONDS = 8.0
+DECAY_PER_REPEAT = 0.96
+MINIMUM_REPEAT_GAIN = 0.22
 
 MASTERS = {
     "music-first-light": {
         "source": PROJECT_ROOT / "tools" / "source_audio" / "music-first-light-source.m4a",
         "output": PROJECT_ROOT / "assets" / "audio" / "music-first-light.m4a",
-        "subtitle": "柔和钢琴与安静铺底，整理为约 25 分钟连续版本，段落之间使用柔和交叉淡化。",
+        "subtitle": "柔和钢琴与安静铺底，约 25 分钟。段落衔接平缓，声音会慢慢变轻。",
         "shortLabel": "轻音乐 · 约25分钟",
     },
     "music-contemplation": {
         "source": PROJECT_ROOT / "tools" / "source_audio" / "music-contemplation-source.m4a",
         "output": PROJECT_ROOT / "assets" / "audio" / "music-contemplation.m4a",
-        "subtitle": "缓慢铺开的环境音乐，整理为约 25 分钟连续版本，尽量减少短循环的注意力提示。",
+        "subtitle": "缓慢铺开的环境音乐，约 25 分钟。段落衔接平缓，声音会慢慢变轻。",
         "shortLabel": "环境音乐 · 约25分钟",
     },
 }
@@ -68,6 +71,12 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _gain_for_repeat(index: int) -> float:
+    if index <= 0:
+        return 1.0
+    return max(MINIMUM_REPEAT_GAIN, DECAY_PER_REPEAT**index)
+
+
 def _build_master(source: Path, output: Path) -> None:
     source_seconds = _duration(source)
     if not 20 <= source_seconds <= 5 * 60:
@@ -87,8 +96,10 @@ def _build_master(source: Path, output: Path) -> None:
     filters: list[str] = []
     for index in range(copies):
         input_args.extend(["-i", str(source)])
+        gain = _gain_for_repeat(index)
         filters.append(
-            f"[{index}:a]atrim=0:{source_seconds:.4f},asetpts=PTS-STARTPTS[a{index}]"
+            f"[{index}:a]atrim=0:{source_seconds:.4f},asetpts=PTS-STARTPTS,"
+            f"volume={gain:.6f}[a{index}]"
         )
 
     previous = "a0"
@@ -171,7 +182,7 @@ def main() -> None:
             item["licenseName"] = f"{license_name} · 25-minute crossfade master"
 
     catalog["schemaVersion"] = max(int(catalog.get("schemaVersion", 1)), 6)
-    catalog["updatedAt"] = "2026-08-15"
+    catalog["updatedAt"] = datetime.now(timezone.utc).date().isoformat()
     with CATALOG_PATH.open("w", encoding="utf-8") as handle:
         json.dump(catalog, handle, ensure_ascii=False, indent=2)
         handle.write("\n")

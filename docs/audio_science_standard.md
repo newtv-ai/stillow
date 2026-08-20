@@ -131,10 +131,12 @@ night preset is still respected.
 
 ## Candidate queue
 
-`assets/content/audio_candidates.json` is **review tooling**, not production
-content.
+`assets/content/audio_candidates.json` is an **explicit listening queue**, not
+approved production content.
 
-- The normal app startup path must not load it.
+- The app may expose it only through the clearly labelled candidate-testing
+  library.
+- Every item remains marked as unreviewed while it is in this queue.
 - Candidates never enter automatic recommendations.
 - Spoken-knowledge candidates are review material for comfort content, not core
   sleep audio.
