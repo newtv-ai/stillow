@@ -24,6 +24,9 @@ class OfflineAudioStore {
   final int _maxDownloadBytes;
   Future<Directory>? _audioDirectoryFuture;
 
+  static const _maxRedirects = 5;
+  static const _redirectStatusCodes = {301, 302, 303, 307, 308};
+
   Future<bool> isAvailableOffline(GuidedSession session) async {
     if (session.playbackType == PlaybackType.assetAudio) return true;
     return (await downloadedFile(session)) != null;
@@ -47,7 +50,7 @@ class OfflineAudioStore {
     if (session.playbackType != PlaybackType.directAudio) {
       throw ArgumentError('只有在线直连音频需要下载');
     }
-    if (session.playbackUrl.scheme.toLowerCase() != 'https') {
+    if (!_isHttpsUrl(session.playbackUrl)) {
       throw const OfflineAudioException('只允许通过 HTTPS 下载音频');
     }
 
@@ -62,8 +65,7 @@ class OfflineAudioStore {
     if (partial.existsSync()) await partial.delete();
 
     try {
-      final request = http.Request('GET', session.playbackUrl);
-      final response = await _client.send(request);
+      final response = await _sendWithHttpsRedirects(session.playbackUrl);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw OfflineAudioException('下载返回 ${response.statusCode}');
       }
@@ -115,6 +117,47 @@ class OfflineAudioStore {
       rethrow;
     }
   }
+
+  Future<http.StreamedResponse> _sendWithHttpsRedirects(Uri initialUrl) async {
+    var currentUrl = initialUrl;
+    for (var redirectCount = 0; ; redirectCount++) {
+      if (!_isHttpsUrl(currentUrl)) {
+        throw const OfflineAudioException('音频下载跳转只允许使用 HTTPS');
+      }
+
+      final request = http.Request('GET', currentUrl)..followRedirects = false;
+      final response = await _client.send(request);
+      if (!_redirectStatusCodes.contains(response.statusCode)) {
+        return response;
+      }
+
+      await response.stream.drain<void>();
+      if (redirectCount >= _maxRedirects) {
+        throw const OfflineAudioException('音频下载跳转次数过多');
+      }
+
+      final location = response.headers['location'];
+      if (location == null || location.trim().isEmpty) {
+        throw const OfflineAudioException('音频下载跳转缺少目标地址');
+      }
+
+      late final Uri nextUrl;
+      try {
+        nextUrl = currentUrl.resolve(location.trim());
+      } on FormatException {
+        throw const OfflineAudioException('音频下载跳转地址无效');
+      }
+      if (!_isHttpsUrl(nextUrl)) {
+        throw const OfflineAudioException('音频下载跳转只允许使用 HTTPS');
+      }
+      currentUrl = nextUrl;
+    }
+  }
+
+  static bool _isHttpsUrl(Uri url) =>
+      url.scheme.toLowerCase() == 'https' &&
+      url.hasAuthority &&
+      url.host.isNotEmpty;
 
   Future<void> delete(GuidedSession session) async {
     if (session.playbackType != PlaybackType.directAudio) return;

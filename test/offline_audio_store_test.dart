@@ -89,6 +89,130 @@ void main() {
     store.dispose();
   });
 
+  test('允许 HTTPS 相对跳转并逐跳关闭自动重定向', () async {
+    final requestedUrls = <Uri>[];
+    final followRedirects = <bool>[];
+    final store = OfflineAudioStore(
+      client: MockClient((request) async {
+        requestedUrls.add(request.url);
+        followRedirects.add(request.followRedirects);
+        if (requestedUrls.length == 1) {
+          return http.Response(
+            '',
+            302,
+            headers: {'location': '/media/final.mp3'},
+            isRedirect: true,
+          );
+        }
+        return http.Response.bytes(
+          List<int>.filled(2048, 7),
+          200,
+          headers: {'content-type': 'audio/mpeg'},
+        );
+      }),
+      directoryProvider: () async => temporaryDirectory,
+    );
+
+    final file = await store.download(_directAudioSession());
+
+    expect(file.existsSync(), isTrue);
+    expect(requestedUrls, [
+      Uri.parse('https://example.com/audio.mp3'),
+      Uri.parse('https://example.com/media/final.mp3'),
+    ]);
+    expect(followRedirects, everyElement(isFalse));
+    store.dispose();
+  });
+
+  test('拒绝 HTTPS 跳转到 HTTP', () async {
+    var requestCount = 0;
+    final store = OfflineAudioStore(
+      client: MockClient((_) async {
+        requestCount++;
+        return http.Response(
+          '',
+          302,
+          headers: {'location': 'http://insecure.example/audio.mp3'},
+          isRedirect: true,
+        );
+      }),
+      directoryProvider: () async => temporaryDirectory,
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.message,
+          'message',
+          contains('HTTPS'),
+        ),
+      ),
+    );
+    expect(requestCount, 1);
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
+
+  test('拒绝超过上限的 HTTPS 重定向链', () async {
+    var requestCount = 0;
+    final store = OfflineAudioStore(
+      client: MockClient((request) async {
+        requestCount++;
+        return http.Response(
+          '',
+          302,
+          headers: {'location': '/redirect/$requestCount.mp3'},
+          isRedirect: true,
+        );
+      }),
+      directoryProvider: () async => temporaryDirectory,
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.message,
+          'message',
+          contains('次数过多'),
+        ),
+      ),
+    );
+    expect(requestCount, 6);
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
+
+  test('拒绝缺少目标地址的重定向', () async {
+    final store = OfflineAudioStore(
+      client: MockClient((_) async => http.Response('', 302, isRedirect: true)),
+      directoryProvider: () async => temporaryDirectory,
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.message,
+          'message',
+          contains('缺少目标地址'),
+        ),
+      ),
+    );
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
+
   test('拒绝明显不是音频的响应', () async {
     final store = OfflineAudioStore(
       client: MockClient(
