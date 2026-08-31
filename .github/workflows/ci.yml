@@ -74,6 +74,14 @@ jobs:
       - name: Build Android debug APK
         run: flutter build apk --debug
 
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stillow-android-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
   ios-simulator:
     runs-on: macos-26
     timeout-minutes: 45
