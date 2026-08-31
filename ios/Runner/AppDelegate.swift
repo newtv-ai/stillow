@@ -15,9 +15,13 @@ import UniformTypeIdentifiers
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    let registrar = engineBridge.pluginRegistry.registrar(
+    guard let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "StillowPrivateStorage"
-    )
+    ), let userSoundsRegistrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "StillowUserSounds"
+    ) else {
+      return
+    }
     let channel = FlutterMethodChannel(
       name: "com.stillow.stillow/private_storage",
       binaryMessenger: registrar.messenger()
@@ -46,9 +50,6 @@ import UniformTypeIdentifiers
       }
     }
 
-    let userSoundsRegistrar = engineBridge.pluginRegistry.registrar(
-      forPlugin: "StillowUserSounds"
-    )
     userSounds = UserSoundChannel(messenger: userSoundsRegistrar.messenger())
   }
 }
@@ -281,7 +282,7 @@ final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
 
   private func scopedBookmark(for url: URL) throws -> String {
     let data = try url.bookmarkData(
-      options: [.withSecurityScope],
+      options: [],
       includingResourceValuesForKeys: nil,
       relativeTo: nil
     )
@@ -297,12 +298,9 @@ final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
       : bookmark
     guard let data = Data(base64Encoded: encoded) else { return nil }
     var isStale = false
-    let options: URL.BookmarkResolutionOptions = isScoped
-      ? [.withSecurityScope]
-      : []
     guard let url = try? URL(
       resolvingBookmarkData: data,
-      options: options,
+      options: [],
       relativeTo: nil,
       bookmarkDataIsStale: &isStale
     ) else {
