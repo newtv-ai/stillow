@@ -285,7 +285,6 @@ class RemoteAudioController extends SleepPlaybackController {
     final pendingRelease = _accessRelease;
     if (pendingRelease != null) {
       await pendingRelease;
-      return;
     }
     final handle = _playbackHandle;
     _playbackHandle = null;
