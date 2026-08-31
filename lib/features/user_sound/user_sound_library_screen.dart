@@ -284,6 +284,9 @@ class _UserSoundLibraryScreenState extends State<UserSoundLibraryScreen> {
               else
                 SliverReorderableList(
                   itemCount: _sounds.length,
+                  // Flutter 3.41 still requires this callback; newer SDKs
+                  // preserve it for compatibility while preferring onReorderItem.
+                  // ignore: deprecated_member_use
                   onReorder: _reorder,
                   itemBuilder: (context, index) {
                     final sound = _sounds[index];
