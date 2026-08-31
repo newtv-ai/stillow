@@ -1103,13 +1103,13 @@ abstract class AppLocalizations {
   /// No description provided for @nightPresetLibraryTitle.
   ///
   /// In zh, this message translates to:
-  /// **'夜里醒来时\n默认放哪一段'**
+  /// **'现在想听哪一段'**
   String get nightPresetLibraryTitle;
 
   /// No description provided for @nightPresetLibrarySubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'选一段熟悉的声音，之后仍可更换。'**
+  /// **'“我的声音”只用于这一次；Stillow 声音会记为下次首选。'**
   String get nightPresetLibrarySubtitle;
 
   /// No description provided for @nightStartFailed.
@@ -1139,7 +1139,7 @@ abstract class AppLocalizations {
   /// No description provided for @nightChangePreset.
   ///
   /// In zh, this message translates to:
-  /// **'换一段夜醒预设'**
+  /// **'换一段声音'**
   String get nightChangePreset;
 
   /// No description provided for @nightStart.

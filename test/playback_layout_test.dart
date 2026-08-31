@@ -58,6 +58,50 @@ void main() {
     });
   });
 
+  testWidgets('夜醒选择个人声音只用于当次且界面明确说明', (tester) async {
+    final sound = UserSound(
+      id: 'night-rain',
+      title: '夜雨',
+      sourceKind: UserSoundSourceKind.devicePath,
+      originalFileName: 'night-rain.mp3',
+      loop: false,
+      attenuateLoops: false,
+      createdAt: DateTime(2026),
+      sourcePath: 'C:/sounds/night-rain.mp3',
+      localFilePath: 'C:/sounds/night-rain.mp3',
+    );
+    GuidedSession? changedPreset;
+    await tester.pumpWidget(
+      _localizedTestApp(
+        home: NightRescueScreen(
+          profile: const UserProfile(onboardingComplete: true),
+          catalog: catalog,
+          region: ContentRegion.mainlandChina,
+          offlineAudioStore: OfflineAudioStore(
+            directoryProvider: () async =>
+                throw StateError('picker test does not download'),
+          ),
+          userSounds: [sound],
+          onNightPresetChanged: (session) async => changedPreset = session,
+          onPlaybackStarted: (_, _) async {},
+          onSessionFinished: (_) async {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('换一段声音'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('现在想听哪一段'), findsOneWidget);
+    expect(find.text('“我的声音”只用于这一次；Stillow 声音会记为下次首选。'), findsOneWidget);
+    await tester.tap(find.text('夜雨'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(changedPreset, isNull);
+    expect(find.text('准备播放 · 夜雨'), findsOneWidget);
+  });
+
   testWidgets('素材库在横屏和大字体下不溢出', (tester) async {
     await _pumpOverflowCases(tester, () {
       return _localizedTestApp(

@@ -569,11 +569,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playbackStopped => 'Playback stopped. Try another sound.';
 
   @override
-  String get nightPresetLibraryTitle => 'Default sound\nfor waking at night';
+  String get nightPresetLibraryTitle => 'What would you like to hear?';
 
   @override
   String get nightPresetLibrarySubtitle =>
-      'Choose a familiar sound. You can change it later.';
+      'My sounds apply this time only; Stillow sounds become your next default.';
 
   @override
   String get nightStartFailed => 'This sound could not start. Try another one.';
@@ -590,7 +590,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get nightChangePreset => 'Change night-waking preset';
+  String get nightChangePreset => 'Choose another sound';
 
   @override
   String get nightStart => 'Help me settle';

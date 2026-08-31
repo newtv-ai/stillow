@@ -18,6 +18,13 @@ abstract class UserSoundAccess {
     bool Function()? isCancelled,
   });
 
+  Future<void> persist(String sourcePath);
+
+  Future<String?> refreshBookmark({
+    required String sourcePath,
+    required String accessBookmark,
+  });
+
   Future<void> release(String sourcePath);
 
   Future<UserSoundPlaybackHandle> beginPlayback({
@@ -61,6 +68,33 @@ final class PluginUserSoundAccess implements UserSoundAccess {
       }
     }
     return _checkFile(sourcePath);
+  }
+
+  @override
+  Future<void> persist(String sourcePath) async {
+    if (!sourcePath.startsWith('content:')) return;
+    await _channel.invokeMethod<void>('persist', {'uri': sourcePath});
+  }
+
+  @override
+  Future<String?> refreshBookmark({
+    required String sourcePath,
+    required String accessBookmark,
+  }) async {
+    if (accessBookmark.isEmpty) return accessBookmark;
+    try {
+      final refreshed = await _channel.invokeMethod<String>('refreshBookmark', {
+        'uri': sourcePath,
+        'bookmark': accessBookmark,
+      });
+      return refreshed == null || refreshed.isEmpty
+          ? accessBookmark
+          : refreshed;
+    } on MissingPluginException {
+      return accessBookmark;
+    } on PlatformException {
+      return accessBookmark;
+    }
   }
 
   @override

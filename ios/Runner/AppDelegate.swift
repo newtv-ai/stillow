@@ -54,6 +54,7 @@ import UniformTypeIdentifiers
 }
 
 final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
+  private static let scopedBookmarkPrefix = "stillow-scope-v1:"
   private let channel: FlutterMethodChannel
   private var pendingPick: FlutterResult?
   private var picker: UIDocumentPickerViewController?
@@ -83,6 +84,13 @@ final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
         bookmark: arguments?["bookmark"] as? String,
         path: arguments?["uri"] as? String,
         result: result
+      )
+    case "refreshBookmark":
+      let arguments = call.arguments as? [String: Any]
+      result(
+        refreshBookmark(
+          bookmark: arguments?["bookmark"] as? String
+        )
       )
     case "endPlayback":
       endPlayback()
@@ -161,11 +169,7 @@ final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
     guard url.startAccessingSecurityScopedResource() else { return nil }
     defer { url.stopAccessingSecurityScopedResource() }
     do {
-      let bookmark = try url.bookmarkData(
-        options: [],
-        includingResourceValuesForKeys: nil,
-        relativeTo: nil
-      )
+      let bookmark = try scopedBookmark(for: url)
       let values = try url.resourceValues(forKeys: [.fileSizeKey, .nameKey])
       let rawName = values.name ?? url.lastPathComponent
       let fileExtension = url.pathExtension.lowercased()
@@ -180,7 +184,7 @@ final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
         "fileName": fileName,
         "sourcePath": url.path,
         "declaredSize": values.fileSize ?? 0,
-        "accessBookmark": bookmark.base64EncodedString(),
+        "accessBookmark": bookmark,
       ]
     } catch {
       return nil
@@ -250,22 +254,61 @@ final class UserSoundChannel: NSObject, UIDocumentPickerDelegate {
     accessedURL = nil
   }
 
+  private func refreshBookmark(bookmark: String?) -> String? {
+    guard let bookmark,
+          let resolved = resolveBookmark(bookmark) else {
+      return nil
+    }
+    if resolved.isScoped && !resolved.isStale {
+      return nil
+    }
+    guard resolved.url.startAccessingSecurityScopedResource() else {
+      return nil
+    }
+    defer { resolved.url.stopAccessingSecurityScopedResource() }
+    return try? scopedBookmark(for: resolved.url)
+  }
+
   private func resolveURL(bookmark: String?, path: String?) -> URL? {
-    if let bookmark, let data = Data(base64Encoded: bookmark) {
-      var isStale = false
-      if let url = try? URL(
-        resolvingBookmarkData: data,
-        options: [],
-        relativeTo: nil,
-        bookmarkDataIsStale: &isStale
-      ) {
-        return url
-      }
+    if let bookmark, let resolved = resolveBookmark(bookmark) {
+      return resolved.url
     }
     if let path, !path.isEmpty {
       return URL(fileURLWithPath: path)
     }
     return nil
+  }
+
+  private func scopedBookmark(for url: URL) throws -> String {
+    let data = try url.bookmarkData(
+      options: [.withSecurityScope],
+      includingResourceValuesForKeys: nil,
+      relativeTo: nil
+    )
+    return Self.scopedBookmarkPrefix + data.base64EncodedString()
+  }
+
+  private func resolveBookmark(
+    _ bookmark: String
+  ) -> (url: URL, isStale: Bool, isScoped: Bool)? {
+    let isScoped = bookmark.hasPrefix(Self.scopedBookmarkPrefix)
+    let encoded = isScoped
+      ? String(bookmark.dropFirst(Self.scopedBookmarkPrefix.count))
+      : bookmark
+    guard let data = Data(base64Encoded: encoded) else { return nil }
+    var isStale = false
+    let options: URL.BookmarkResolutionOptions = isScoped
+      ? [.withSecurityScope]
+      : []
+    guard let url = try? URL(
+      resolvingBookmarkData: data,
+      options: options,
+      relativeTo: nil,
+      bookmarkDataIsStale: &isStale
+    ) else {
+      return nil
+    }
+    return (url, isStale, isScoped)
   }
 
   private func topViewController() -> UIViewController? {

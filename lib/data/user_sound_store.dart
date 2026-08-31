@@ -90,18 +90,31 @@ final class LocalUserSoundStore implements UserSoundStore {
     final raw = await _index.read();
     if (raw is! List) return const [];
     final sounds = <UserSound>[];
+    var refreshedBookmarks = false;
     for (final entry in raw) {
       final sound = UserSound.tryFromJson(entry);
       if (sound == null) continue;
-      final resolved = _resolveLoaded(sound, directory);
+      final resolved = await _resolveLoaded(sound, directory);
       if (resolved == null) continue;
       sounds.add(resolved);
+      refreshedBookmarks =
+          refreshedBookmarks || resolved.accessBookmark != sound.accessBookmark;
       if (sounds.length == maxItems) break;
+    }
+    if (refreshedBookmarks) {
+      try {
+        await _writeIndex(sounds);
+      } catch (_) {
+        // The refreshed bookmark still works for this run; retry next launch.
+      }
     }
     return List.unmodifiable(sounds);
   }
 
-  UserSound? _resolveLoaded(UserSound sound, Directory directory) {
+  Future<UserSound?> _resolveLoaded(
+    UserSound sound,
+    Directory directory,
+  ) async {
     switch (sound.sourceKind) {
       case UserSoundSourceKind.fileCopy:
         if (!_isSafeAudioFileName(sound.relativePath)) return null;
@@ -117,9 +130,18 @@ final class LocalUserSoundStore implements UserSoundStore {
       case UserSoundSourceKind.devicePath:
         final sourcePath = sound.sourcePath;
         if (sourcePath == null || sourcePath.isEmpty) return null;
-        if (sourcePath.startsWith('content:') ||
-            (sound.accessBookmark != null &&
-                sound.accessBookmark!.isNotEmpty)) {
+        final bookmark = sound.accessBookmark;
+        if (bookmark != null && bookmark.isNotEmpty) {
+          final refreshed = await _access.refreshBookmark(
+            sourcePath: sourcePath,
+            accessBookmark: bookmark,
+          );
+          if (refreshed != null && refreshed.isNotEmpty) {
+            return sound.copyWith(accessBookmark: refreshed);
+          }
+          return sound;
+        }
+        if (sourcePath.startsWith('content:')) {
           return sound;
         }
         final file = File(_filePath(sourcePath));
@@ -155,6 +177,8 @@ final class LocalUserSoundStore implements UserSoundStore {
     _isImporting = true;
     _cancelRequested = false;
     UserSoundStoreFailure? lastFailure;
+    final persistedPaths = <String>[];
+    var committed = false;
     try {
       if (_cancelRequested) {
         throw const UserSoundStoreException(UserSoundStoreFailure.cancelled);
@@ -205,6 +229,15 @@ final class LocalUserSoundStore implements UserSoundStore {
           case UserSoundAccessCheck.ok:
             break;
         }
+        try {
+          await _access.persist(selection.sourcePath);
+          if (selection.sourcePath.startsWith('content:')) {
+            persistedPaths.add(selection.sourcePath);
+          }
+        } catch (_) {
+          lastFailure = UserSoundStoreFailure.sourceUnavailable;
+          continue;
+        }
         final sound = UserSound(
           id: _uniqueId(existing),
           title: _titleFromFileName(selection.fileName),
@@ -228,6 +261,7 @@ final class LocalUserSoundStore implements UserSoundStore {
         );
       }
       await _writeIndex(existing);
+      committed = true;
       onProgress?.call(1);
       return imported;
     } on UserSoundStoreException {
@@ -239,11 +273,13 @@ final class LocalUserSoundStore implements UserSoundStore {
         UserSoundStoreFailure.sourceUnavailable,
       );
     } finally {
-      for (final selection in selections) {
-        try {
-          await selection.release?.call();
-        } catch (_) {
-          // Picker cleanup is best-effort; the path is already indexed.
+      if (!committed) {
+        for (final sourcePath in persistedPaths) {
+          try {
+            await _access.release(sourcePath);
+          } catch (_) {
+            // Rollback is best-effort after an index write failure.
+          }
         }
       }
       _isImporting = false;
@@ -336,6 +372,11 @@ final class LocalUserSoundStore implements UserSoundStore {
   }
 
   void _validateSelection(UserSoundSelection selection) {
+    if (selection.mimeType?.toLowerCase() == 'audio/aac') {
+      throw const UserSoundStoreException(
+        UserSoundStoreFailure.unsupportedFormat,
+      );
+    }
     var extension = _extension(selection.fileName);
     if (extension != 'mp3' && extension != 'm4a') {
       extension = _extension(selection.sourcePath);

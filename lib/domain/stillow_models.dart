@@ -72,8 +72,6 @@ class UserProfile {
     this.appLanguagePreference = AppLanguagePreference.system,
     this.audioLanguagePreference = AudioLanguagePreference.automatic,
     this.nightPresetSessionId,
-    this.tonightDefaultUserSoundId,
-    this.nightPresetUserSoundId,
   });
 
   final bool onboardingComplete;
@@ -92,8 +90,6 @@ class UserProfile {
   final AppLanguagePreference appLanguagePreference;
   final AudioLanguagePreference audioLanguagePreference;
   final String? nightPresetSessionId;
-  final String? tonightDefaultUserSoundId;
-  final String? nightPresetUserSoundId;
 
   UserProfile copyWith({
     bool? onboardingComplete,
@@ -113,10 +109,6 @@ class UserProfile {
     AudioLanguagePreference? audioLanguagePreference,
     String? nightPresetSessionId,
     bool clearNightPresetSessionId = false,
-    String? tonightDefaultUserSoundId,
-    bool clearTonightDefaultUserSoundId = false,
-    String? nightPresetUserSoundId,
-    bool clearNightPresetUserSoundId = false,
   }) {
     return UserProfile(
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -139,12 +131,6 @@ class UserProfile {
       nightPresetSessionId: clearNightPresetSessionId
           ? null
           : nightPresetSessionId ?? this.nightPresetSessionId,
-      tonightDefaultUserSoundId: clearTonightDefaultUserSoundId
-          ? null
-          : tonightDefaultUserSoundId ?? this.tonightDefaultUserSoundId,
-      nightPresetUserSoundId: clearNightPresetUserSoundId
-          ? null
-          : nightPresetUserSoundId ?? this.nightPresetUserSoundId,
     );
   }
 
@@ -417,6 +403,7 @@ class UserSound {
     String? title,
     bool? loop,
     bool? attenuateLoops,
+    String? accessBookmark,
     Object? defaultTimerMinutes = _unsetValue,
     int? durationSeconds,
     String? localFilePath,
@@ -426,7 +413,7 @@ class UserSound {
     sourceKind: sourceKind,
     relativePath: relativePath,
     sourcePath: sourcePath,
-    accessBookmark: accessBookmark,
+    accessBookmark: accessBookmark ?? this.accessBookmark,
     originalFileName: originalFileName,
     loop: loop ?? this.loop,
     attenuateLoops: attenuateLoops ?? this.attenuateLoops,

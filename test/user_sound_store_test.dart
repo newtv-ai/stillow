@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -122,6 +123,42 @@ void main() {
     expect(restored.single.defaultTimerMinutes, 30);
   });
 
+  test('iOS 书签刷新后会更新内存并回写索引', () async {
+    final soundsDirectory = Directory(
+      '${directory.path}${Platform.pathSeparator}user_sounds',
+    );
+    await soundsDirectory.create(recursive: true);
+    final sound = UserSound(
+      id: 'bookmark',
+      title: '夜雨',
+      sourceKind: UserSoundSourceKind.devicePath,
+      sourcePath: '/outside/night-rain.m4a',
+      accessBookmark: 'legacy-bookmark',
+      originalFileName: 'night-rain.m4a',
+      loop: false,
+      attenuateLoops: false,
+      createdAt: DateTime(2026),
+    );
+    final index = File(
+      '${soundsDirectory.path}${Platform.pathSeparator}user_sounds.json',
+    );
+    await index.writeAsString(jsonEncode([sound.toJson()]));
+    final access = _RecordingAccess(refreshedBookmark: 'scoped-bookmark');
+    store = LocalUserSoundStore(
+      directoryProvider: () async => directory,
+      access: access,
+    );
+
+    final restored = await store.load();
+    final saved = jsonDecode(await index.readAsString()) as List<dynamic>;
+
+    expect(restored.single.accessBookmark, 'scoped-bookmark');
+    expect(
+      (saved.single as Map<String, dynamic>)['accessBookmark'],
+      'scoped-bookmark',
+    );
+  });
+
   test('不支持的格式会在写入索引前拒绝', () async {
     final original = await _writeSource(sourceDirectory, 'sound.wav', [1]);
     await expectLater(
@@ -135,6 +172,108 @@ void main() {
       ),
     );
     expect(_audioCopies(directory), isEmpty);
+  });
+
+  test('伪装成 M4A 的原始 AAC 会在持久化授权前拒绝', () async {
+    final access = _RecordingAccess();
+    store = LocalUserSoundStore(
+      directoryProvider: () async => directory,
+      access: access,
+    );
+
+    await expectLater(
+      store.import(
+        const UserSoundSelection(
+          fileName: 'raw-aac.m4a',
+          sourcePath: 'content://media/raw-aac',
+          mimeType: 'audio/aac',
+        ),
+      ),
+      throwsA(
+        isA<UserSoundStoreException>().having(
+          (error) => error.failure,
+          'failure',
+          UserSoundStoreFailure.unsupportedFormat,
+        ),
+      ),
+    );
+
+    expect(access.persisted, isEmpty);
+    expect(await store.load(), isEmpty);
+  });
+
+  test('Android URI 只在校验通过后持久化，跳过项不会占用授权', () async {
+    final access = _RecordingAccess();
+    store = LocalUserSoundStore(
+      directoryProvider: () async => directory,
+      access: access,
+    );
+
+    final imported = await store.importAll(const [
+      UserSoundSelection(
+        fileName: 'skip.wav',
+        sourcePath: 'content://media/skip',
+        mimeType: 'audio/wav',
+      ),
+      UserSoundSelection(
+        fileName: 'keep.mp3',
+        sourcePath: 'content://media/keep',
+        mimeType: 'audio/mpeg',
+      ),
+    ]);
+
+    expect(imported.single.sourcePath, 'content://media/keep');
+    expect(access.persisted, ['content://media/keep']);
+    expect(access.released, isEmpty);
+
+    await expectLater(
+      store.import(
+        const UserSoundSelection(
+          fileName: 'keep.mp3',
+          sourcePath: 'content://media/keep',
+          mimeType: 'audio/mpeg',
+        ),
+      ),
+      throwsA(isA<UserSoundStoreException>()),
+    );
+    expect(access.persisted, ['content://media/keep']);
+    expect(access.released, isEmpty);
+  });
+
+  test('索引提交失败会回滚本次新取得的 Android URI 授权', () async {
+    final access = _RecordingAccess();
+    final blockedRoot = File(
+      '${directory.path}${Platform.pathSeparator}blocked-root',
+    );
+    await blockedRoot.writeAsString('not a directory');
+    var providerCalls = 0;
+    store = LocalUserSoundStore(
+      directoryProvider: () async {
+        providerCalls++;
+        return providerCalls < 3 ? directory : Directory(blockedRoot.path);
+      },
+      access: access,
+    );
+
+    await expectLater(
+      store.import(
+        const UserSoundSelection(
+          fileName: 'rollback.mp3',
+          sourcePath: 'content://media/rollback',
+          mimeType: 'audio/mpeg',
+        ),
+      ),
+      throwsA(
+        isA<UserSoundStoreException>().having(
+          (error) => error.failure,
+          'failure',
+          UserSoundStoreFailure.writeFailed,
+        ),
+      ),
+    );
+
+    expect(access.persisted, ['content://media/rollback']);
+    expect(access.released, ['content://media/rollback']);
   });
 
   test('选择器未报大小时仍按原文件加入路径', () async {
@@ -339,23 +478,6 @@ void main() {
       imported.first.id,
     ]);
   });
-
-  test('加入路径后仍会释放选择器回调', () async {
-    var released = false;
-    final original = await _writeSource(sourceDirectory, 'cached.mp3', [1, 2]);
-
-    await store.import(
-      UserSoundSelection(
-        fileName: 'cached.mp3',
-        sourcePath: original.path,
-        declaredSize: 2,
-        release: () async => released = true,
-      ),
-    );
-
-    expect(released, isTrue);
-    expect(original.existsSync(), isTrue);
-  });
 }
 
 Future<File> _writeSource(
@@ -386,7 +508,7 @@ List<File> _audioCopies(Directory root) {
       .toList();
 }
 
-final class _HangingAccess implements UserSoundAccess {
+final class _HangingAccess extends UserSoundAccess {
   _HangingAccess(this.started);
 
   final Completer<void> started;
@@ -413,6 +535,15 @@ final class _HangingAccess implements UserSoundAccess {
   }
 
   @override
+  Future<void> persist(String sourcePath) async {}
+
+  @override
+  Future<String?> refreshBookmark({
+    required String sourcePath,
+    required String accessBookmark,
+  }) async => accessBookmark;
+
+  @override
   Future<void> release(String sourcePath) async {}
 
   @override
@@ -420,6 +551,46 @@ final class _HangingAccess implements UserSoundAccess {
     required String sourcePath,
     String? accessBookmark,
   }) async => UserSoundPlaybackHandle(filePath: sourcePath);
+
+  @override
+  Future<void> endPlayback() async {}
+}
+
+final class _RecordingAccess extends UserSoundAccess {
+  _RecordingAccess({this.refreshedBookmark});
+
+  final String? refreshedBookmark;
+  final List<String> persisted = [];
+  final List<String> released = [];
+
+  @override
+  Future<UserSoundAccessCheck> ensureReadable({
+    required String sourcePath,
+    String? accessBookmark,
+    bool Function()? isCancelled,
+  }) async => UserSoundAccessCheck.ok;
+
+  @override
+  Future<void> persist(String sourcePath) async {
+    persisted.add(sourcePath);
+  }
+
+  @override
+  Future<String?> refreshBookmark({
+    required String sourcePath,
+    required String accessBookmark,
+  }) async => refreshedBookmark ?? accessBookmark;
+
+  @override
+  Future<void> release(String sourcePath) async {
+    released.add(sourcePath);
+  }
+
+  @override
+  Future<UserSoundPlaybackHandle> beginPlayback({
+    required String sourcePath,
+    String? accessBookmark,
+  }) async => UserSoundPlaybackHandle(uri: Uri.parse(sourcePath));
 
   @override
   Future<void> endPlayback() async {}

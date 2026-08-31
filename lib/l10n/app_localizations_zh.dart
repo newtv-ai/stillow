@@ -520,10 +520,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get playbackStopped => '播放中断了，可以换一个声音试试。';
 
   @override
-  String get nightPresetLibraryTitle => '夜里醒来时\n默认放哪一段';
+  String get nightPresetLibraryTitle => '现在想听哪一段';
 
   @override
-  String get nightPresetLibrarySubtitle => '选一段熟悉的声音，之后仍可更换。';
+  String get nightPresetLibrarySubtitle => '“我的声音”只用于这一次；Stillow 声音会记为下次首选。';
 
   @override
   String get nightStartFailed => '这段声音暂时没能开始，可以换一段再试。';
@@ -540,7 +540,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get nightChangePreset => '换一段夜醒预设';
+  String get nightChangePreset => '换一段声音';
 
   @override
   String get nightStart => '帮我慢慢安静下来';

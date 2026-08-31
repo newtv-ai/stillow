@@ -28,6 +28,23 @@ class MainActivity : AudioServiceFragmentActivity() {
                             result.success(probe(Uri.parse(uri)))
                         }
                     }
+                    "persist" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrEmpty()) {
+                            result.error("missing_uri", "Missing selected file URI.", null)
+                        } else {
+                            try {
+                                persist(Uri.parse(uri))
+                                result.success(null)
+                            } catch (error: SecurityException) {
+                                result.error(
+                                    "persist_failed",
+                                    "Could not keep access to the selected file.",
+                                    error.message,
+                                )
+                            }
+                        }
+                    }
                     "release" -> {
                         val uri = call.argument<String>("uri")
                         if (!uri.isNullOrEmpty()) {
@@ -75,23 +92,15 @@ class MainActivity : AudioServiceFragmentActivity() {
             return
         }
         try {
-            val takeFlags = (data?.flags ?: 0) and Intent.FLAG_GRANT_READ_URI_PERMISSION
             val payload = ArrayList<HashMap<String, Any?>>(uris.size)
             for (uri in uris) {
                 try {
-                    if (takeFlags != 0) {
-                        contentResolver.takePersistableUriPermission(uri, takeFlags)
-                    } else {
-                        contentResolver.takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                        )
-                    }
                     payload.add(
                         hashMapOf(
                             "fileName" to fileNameFor(uri),
                             "sourcePath" to uri.toString(),
                             "declaredSize" to probe(uri).coerceAtLeast(0),
+                            "mimeType" to contentResolver.getType(uri)?.lowercase(),
                         ),
                     )
                 } catch (_: SecurityException) {
@@ -100,8 +109,8 @@ class MainActivity : AudioServiceFragmentActivity() {
             }
             if (payload.isEmpty()) {
                 pending.error(
-                    "persist_failed",
-                    "Could not keep access to the selected file.",
+                    "pick_failed",
+                    "Could not read any selected audio file.",
                     null,
                 )
             } else {
@@ -123,7 +132,7 @@ class MainActivity : AudioServiceFragmentActivity() {
             type = "audio/*"
             putExtra(
                 Intent.EXTRA_MIME_TYPES,
-                arrayOf("audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"),
+                arrayOf("audio/mpeg", "audio/mp4", "audio/x-m4a"),
             )
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -155,10 +164,17 @@ class MainActivity : AudioServiceFragmentActivity() {
         val mime = contentResolver.getType(uri)?.lowercase()
         val extension = when (mime) {
             "audio/mpeg", "audio/mp3" -> ".mp3"
-            "audio/mp4", "audio/x-m4a", "audio/aac" -> ".m4a"
+            "audio/mp4", "audio/x-m4a" -> ".m4a"
             else -> ""
         }
         return resolved + extension
+    }
+
+    private fun persist(uri: Uri) {
+        contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
     }
 
     private fun probe(uri: Uri): Long {

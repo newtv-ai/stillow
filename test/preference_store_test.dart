@@ -32,8 +32,6 @@ void main() {
       appLanguagePreference: AppLanguagePreference.english,
       audioLanguagePreference: AudioLanguagePreference.english,
       nightPresetSessionId: 'music-first-light',
-      tonightDefaultUserSoundId: 'personal-rain',
-      nightPresetUserSoundId: 'personal-course',
     );
 
     await store.save(profile);
@@ -48,30 +46,29 @@ void main() {
     expect(restored.appLanguagePreference, profile.appLanguagePreference);
     expect(restored.audioLanguagePreference, profile.audioLanguagePreference);
     expect(restored.nightPresetSessionId, profile.nightPresetSessionId);
-    expect(
-      restored.tonightDefaultUserSoundId,
-      profile.tonightDefaultUserSoundId,
-    );
-    expect(restored.nightPresetUserSoundId, profile.nightPresetUserSoundId);
   });
 
-  test('个人声音预设可以分别清除且不影响其他偏好', () {
-    const profile = UserProfile(
-      onboardingComplete: true,
-      nightPresetSessionId: 'built-in',
-      tonightDefaultUserSoundId: 'tonight',
-      nightPresetUserSoundId: 'night',
+  test('旧版个人声音默认字段会被忽略并在下次保存时移除', () async {
+    final preferences = File(
+      '${directory.path}${Platform.pathSeparator}preferences.json',
+    );
+    await preferences.writeAsString(
+      '{"version":4,"onboardingComplete":true,'
+      '"nightPresetSessionId":"built-in",'
+      '"tonightDefaultUserSoundId":"tonight",'
+      '"nightPresetUserSoundId":"night"}',
     );
 
-    final updated = profile.copyWith(
-      clearTonightDefaultUserSoundId: true,
-      clearNightPresetUserSoundId: true,
+    final store = LocalPreferenceStore(
+      directoryProvider: () async => directory,
     );
+    final restored = await store.load();
+    await store.save(restored);
+    final saved = await preferences.readAsString();
 
-    expect(updated.tonightDefaultUserSoundId, isNull);
-    expect(updated.nightPresetUserSoundId, isNull);
-    expect(updated.nightPresetSessionId, 'built-in');
-    expect(updated.onboardingComplete, isTrue);
+    expect(restored.nightPresetSessionId, 'built-in');
+    expect(saved, isNot(contains('tonightDefaultUserSoundId')));
+    expect(saved, isNot(contains('nightPresetUserSoundId')));
   });
 
   test('损坏的本地偏好不会阻止应用启动', () async {

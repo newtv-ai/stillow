@@ -55,7 +55,7 @@ final class PreferenceController {
 }
 
 Map<String, Object?> _profileToJson(UserProfile profile) => {
-  'version': 4,
+  'version': 5,
   'onboardingComplete': profile.onboardingComplete,
   'supportNeed': profile.supportNeed?.name,
   'soundPreference': profile.soundPreference?.name,
@@ -72,8 +72,6 @@ Map<String, Object?> _profileToJson(UserProfile profile) => {
   'appLanguagePreference': profile.appLanguagePreference.name,
   'audioLanguagePreference': profile.audioLanguagePreference.name,
   'nightPresetSessionId': profile.nightPresetSessionId,
-  'tonightDefaultUserSoundId': profile.tonightDefaultUserSoundId,
-  'nightPresetUserSoundId': profile.nightPresetUserSoundId,
 };
 
 UserProfile _profileFromJson(Object? value) {
@@ -130,8 +128,6 @@ UserProfile _profileFromJson(Object? value) {
         ) ??
         AudioLanguagePreference.automatic,
     nightPresetSessionId: _asString(json['nightPresetSessionId']),
-    tonightDefaultUserSoundId: _asString(json['tonightDefaultUserSoundId']),
-    nightPresetUserSoundId: _asString(json['nightPresetUserSoundId']),
   );
 }
 

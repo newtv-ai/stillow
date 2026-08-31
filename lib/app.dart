@@ -229,10 +229,7 @@ class _StillowRootState extends State<StillowRoot> {
 
   Future<void> _setNightPreset(GuidedSession session) {
     return _applyProfile(
-      (current) => current.copyWith(
-        nightPresetSessionId: session.id,
-        clearNightPresetUserSoundId: true,
-      ),
+      (current) => current.copyWith(nightPresetSessionId: session.id),
     );
   }
 
@@ -276,12 +273,6 @@ class _StillowRootState extends State<StillowRoot> {
             .toList(growable: false),
       );
     }
-    await _applyProfile(
-      (current) => current.copyWith(
-        clearTonightDefaultUserSoundId: current.tonightDefaultUserSoundId == id,
-        clearNightPresetUserSoundId: current.nightPresetUserSoundId == id,
-      ),
-    );
   }
 
   Future<void> _saveSleepSession(AppSleepSessionRecord record) =>

@@ -6,14 +6,14 @@ final class UserSoundSelection {
     required this.sourcePath,
     this.declaredSize = 0,
     this.accessBookmark,
-    this.release,
+    this.mimeType,
   });
 
   final String fileName;
   final String sourcePath;
   final int declaredSize;
   final String? accessBookmark;
-  final Future<void> Function()? release;
+  final String? mimeType;
 }
 
 abstract interface class UserSoundPicker {
@@ -42,6 +42,7 @@ final class PluginUserSoundPicker implements UserSoundPicker {
       }
       final size = entry['declaredSize'];
       final bookmark = entry['accessBookmark'];
+      final mimeType = entry['mimeType'];
       selections.add(
         UserSoundSelection(
           fileName: fileName,
@@ -49,6 +50,9 @@ final class PluginUserSoundPicker implements UserSoundPicker {
           declaredSize: size is num ? size.toInt() : 0,
           accessBookmark: bookmark is String && bookmark.isNotEmpty
               ? bookmark
+              : null,
+          mimeType: mimeType is String && mimeType.isNotEmpty
+              ? mimeType.toLowerCase()
               : null,
         ),
       );

@@ -42,6 +42,10 @@ class RemoteAudioController extends SleepPlaybackController {
   final AudioPlayer _player;
   final UserSoundAccess _userSoundAccess;
   UserSoundPlaybackHandle? _playbackHandle;
+  Future<void>? _accessRelease;
+  bool _finishingCompletion = false;
+  int _playbackGeneration = 0;
+  bool _disposed = false;
   static const _loopVolume = ProgressiveLoopVolume();
   late final StreamSubscription<PlayerState> _playerSubscription;
   late final StreamSubscription<Duration> _positionSubscription;
@@ -65,6 +69,7 @@ class RemoteAudioController extends SleepPlaybackController {
 
   @override
   Future<void> start(PlaybackItem nextItem) async {
+    final generation = ++_playbackGeneration;
     item = nextItem;
     _previousPosition = Duration.zero;
     _completedMusicLoops = 0;
@@ -123,7 +128,7 @@ class RemoteAudioController extends SleepPlaybackController {
           AudioSource.uri(playbackUrl!, tag: mediaItem),
         );
       }
-      unawaited(_play());
+      unawaited(_play(generation));
     } on PlayerException catch (_) {
       await _endPlaybackAccess();
       _setError(PlaybackFailure.loadFailed);
@@ -136,12 +141,16 @@ class RemoteAudioController extends SleepPlaybackController {
     }
   }
 
-  Future<void> _play() async {
+  Future<void> _play(int generation) async {
     try {
       await _player.play();
     } on PlayerException catch (_) {
+      if (generation != _playbackGeneration) return;
+      await _endPlaybackAccess();
       _setError(PlaybackFailure.stoppedRetry);
     } catch (_) {
+      if (generation != _playbackGeneration) return;
+      await _endPlaybackAccess();
       _setError(PlaybackFailure.stopped);
     }
   }
@@ -149,7 +158,7 @@ class RemoteAudioController extends SleepPlaybackController {
   @override
   Future<void> resume() async {
     if (item == null || status == PlaybackStatus.complete) return;
-    unawaited(_play());
+    unawaited(_play(_playbackGeneration));
   }
 
   @override
@@ -193,6 +202,7 @@ class RemoteAudioController extends SleepPlaybackController {
 
   @override
   Future<void> stop() async {
+    _playbackGeneration++;
     _sleepTimer?.cancel();
     _sleepTimer = null;
     sleepTimerEndsAt = null;
@@ -206,10 +216,11 @@ class RemoteAudioController extends SleepPlaybackController {
     _attenuateMusicLoops = false;
     await _applyVolume();
     status = PlaybackStatus.idle;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   void _handlePosition(Duration position) {
+    if (_disposed) return;
     if (_attenuateMusicLoops &&
         status == PlaybackStatus.playing &&
         ProgressiveLoopVolume.didPositionWrap(_previousPosition, position)) {
@@ -226,10 +237,16 @@ class RemoteAudioController extends SleepPlaybackController {
   }
 
   void _handlePlayerState(PlayerState playerState) {
+    if (_disposed) return;
     if (playerState.processingState == ProcessingState.completed) {
       _sleepTimer?.cancel();
       _sleepTimer = null;
       sleepTimerEndsAt = null;
+      if (!_finishingCompletion) {
+        _finishingCompletion = true;
+        unawaited(_finishCompleted(item, _playbackGeneration));
+      }
+      return;
     }
     status = switch (playerState.processingState) {
       ProcessingState.loading ||
@@ -243,16 +260,48 @@ class RemoteAudioController extends SleepPlaybackController {
     notifyListeners();
   }
 
+  Future<void> _finishCompleted(
+    PlaybackItem? completedItem,
+    int completedGeneration,
+  ) async {
+    await _endPlaybackAccess();
+    if (_playbackGeneration == completedGeneration &&
+        identical(item, completedItem) &&
+        !_disposed) {
+      status = PlaybackStatus.complete;
+      notifyListeners();
+    }
+    _finishingCompletion = false;
+  }
+
   void _setError(PlaybackFailure nextFailure) {
+    if (_disposed) return;
     failure = nextFailure;
     status = PlaybackStatus.error;
     notifyListeners();
   }
 
   Future<void> _endPlaybackAccess() async {
+    final pendingRelease = _accessRelease;
+    if (pendingRelease != null) {
+      await pendingRelease;
+      return;
+    }
     final handle = _playbackHandle;
     _playbackHandle = null;
     if (handle == null) return;
+    final release = _releasePlaybackAccess();
+    _accessRelease = release;
+    try {
+      await release;
+    } finally {
+      if (identical(_accessRelease, release)) {
+        _accessRelease = null;
+      }
+    }
+  }
+
+  Future<void> _releasePlaybackAccess() async {
     try {
       await _userSoundAccess.endPlayback();
     } catch (_) {
@@ -262,6 +311,8 @@ class RemoteAudioController extends SleepPlaybackController {
 
   @override
   void dispose() {
+    _disposed = true;
+    _playbackGeneration++;
     _sleepTimer?.cancel();
     unawaited(_endPlaybackAccess());
     unawaited(_playerSubscription.cancel());
