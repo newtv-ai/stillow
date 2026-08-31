@@ -30,13 +30,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   just_audio: ^0.10.6
   just_audio_background: ^0.0.1-beta.17
   http: ^1.6.0
   path_provider: ^2.1.6
   url_launcher: ^6.3.2
-  health: ^13.3.1
+  health: 13.3.1
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +51,7 @@ dev_dependencies:
 
 # For information on the generic Dart part, see https://dart.dev/tools/pub/pubspec
 flutter:
+  generate: true
   uses-material-design: true
 
   assets:
@@ -56,4 +59,6 @@ flutter:
     - assets/content/study_drowsy_catalog.json
     - assets/content/audio_candidates.json
     - assets/content/dream_symbols.json
+    - assets/content/dream_symbols_en.json
+    - assets/content/content_localizations.json
     - assets/audio/

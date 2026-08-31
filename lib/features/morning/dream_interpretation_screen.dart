@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/dream_interpreter.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 
@@ -14,16 +15,31 @@ class DreamInterpretationScreen extends StatefulWidget {
 
 class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
   final _controller = TextEditingController();
-  late final Future<DreamInterpreter> _interpreter =
-      DreamInterpreter.loadAsset();
+  Future<DreamInterpreter>? _interpreter;
+  String? _interpreterLanguage;
   List<DreamReading> _readings = const [];
   bool _hasRead = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final language = Localizations.localeOf(context).languageCode == 'zh'
+        ? 'zh'
+        : 'en';
+    if (_interpreterLanguage == language) return;
+    _interpreterLanguage = language;
+    _interpreter = DreamInterpreter.loadAsset(
+      path: language == 'zh'
+          ? 'assets/content/dream_symbols.json'
+          : 'assets/content/dream_symbols_en.json',
+    );
+  }
 
   Future<void> _interpret() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     FocusScope.of(context).unfocus();
-    final interpreter = await _interpreter;
+    final interpreter = await _interpreter!;
     if (!mounted) return;
     setState(() {
       _readings = interpreter.interpret(text);
@@ -39,6 +55,7 @@ class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: StillowBackdrop(
@@ -54,18 +71,18 @@ class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
                     alignment: Alignment.centerLeft,
                     child: QuietIconButton(
                       icon: Icons.arrow_back_rounded,
-                      tooltip: '返回',
+                      tooltip: l10n.back,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    '梦里发生了\n什么？',
+                    l10n.dreamTitle,
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '写下几个还记得的画面、人物或感受。',
+                    l10n.dreamSubtitle,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 24),
@@ -76,7 +93,7 @@ class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
                     maxLength: 600,
                     textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
-                      hintText: '例如：我在一座陌生的房子里，窗外一直下雨……',
+                      hintText: l10n.dreamHint,
                       counterText: '',
                       filled: true,
                       fillColor: StillowColors.surface,
@@ -98,18 +115,18 @@ class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
                   FilledButton.icon(
                     onPressed: _interpret,
                     icon: const Icon(Icons.auto_awesome_outlined),
-                    label: const Text('看看这个梦'),
+                    label: Text(l10n.dreamAction),
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '文字只在当前页面内即时分析，退出后不保存。',
+                    l10n.dreamPrivacy,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   if (_hasRead) ...[
                     const SizedBox(height: 30),
                     Text(
-                      '一种轻松的读法',
+                      l10n.dreamReadingTitle,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 12),
@@ -125,7 +142,7 @@ class _DreamInterpretationScreenState extends State<DreamInterpretationScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '仅供休闲娱乐。梦没有统一答案，本解析不预测未来，也不代表心理诊断。',
+                        l10n.dreamDisclaimer,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),

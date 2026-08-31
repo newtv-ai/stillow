@@ -2,6 +2,7 @@ import 'package:stillow/data/preference_store.dart';
 import 'package:stillow/data/sleep_history_store.dart';
 import 'package:stillow/domain/sleep_history.dart';
 import 'package:stillow/domain/stillow_models.dart';
+import 'package:stillow/services/remote_audio_controller.dart';
 import 'package:stillow/services/sleep_health_gateway.dart';
 
 class MemoryPreferenceStore implements PreferenceStore {
@@ -28,7 +29,10 @@ class MemorySleepHistoryStore implements SleepHistoryStore {
   final DateTime Function() _clock;
 
   @override
-  Future<SleepHistorySnapshot> load() async => snapshot.pruned(_clock());
+  Future<SleepHistorySnapshot> load() async {
+    snapshot = snapshot.pruned(_clock());
+    return snapshot;
+  }
 
   @override
   Future<void> saveAppSession(AppSleepSessionRecord record) async {
@@ -121,4 +125,66 @@ class MemorySleepHealthGateway implements SleepHealthGateway {
 
   @override
   Future<void> disconnect() async => disconnected = true;
+}
+
+class FakeSleepPlaybackController extends SleepPlaybackController {
+  @override
+  PlaybackStatus status = PlaybackStatus.idle;
+
+  @override
+  PlaybackFailure? failure;
+
+  @override
+  DateTime? sleepTimerEndsAt;
+
+  PlaybackItem? item;
+
+  @override
+  bool get isPlaying => status == PlaybackStatus.playing;
+
+  @override
+  Future<void> start(PlaybackItem nextItem) async {
+    item = nextItem;
+    failure = null;
+    status = PlaybackStatus.loading;
+    notifyListeners();
+    status = PlaybackStatus.playing;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> pause() async {
+    status = PlaybackStatus.paused;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> resume() async {
+    status = PlaybackStatus.playing;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> stop() async {
+    status = PlaybackStatus.idle;
+    sleepTimerEndsAt = null;
+    notifyListeners();
+  }
+
+  @override
+  void setSleepTimer(Duration? duration) {
+    sleepTimerEndsAt = duration == null ? null : DateTime.now().add(duration);
+    notifyListeners();
+  }
+
+  void emitComplete() {
+    status = PlaybackStatus.complete;
+    notifyListeners();
+  }
+
+  void emitError(PlaybackFailure nextFailure) {
+    failure = nextFailure;
+    status = PlaybackStatus.error;
+    notifyListeners();
+  }
 }

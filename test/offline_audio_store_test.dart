@@ -265,6 +265,102 @@ void main() {
     );
     store.dispose();
   });
+
+  test('下载超时会清理半截文件', () async {
+    final store = OfflineAudioStore(
+      client: MockClient((_) async {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        return http.Response.bytes(
+          [1, 2, 3],
+          200,
+          headers: {'content-type': 'audio/mpeg'},
+        );
+      }),
+      directoryProvider: () async => temporaryDirectory,
+      requestTimeout: const Duration(milliseconds: 20),
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.error,
+          'error',
+          OfflineAudioError.timeout,
+        ),
+      ),
+    );
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
+
+  test('可以取消正在进行的下载', () async {
+    final store = OfflineAudioStore(
+      client: MockClient((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        return http.Response.bytes(
+          List<int>.filled(2048, 1),
+          200,
+          headers: {'content-type': 'audio/mpeg'},
+        );
+      }),
+      directoryProvider: () async => temporaryDirectory,
+      requestTimeout: const Duration(seconds: 5),
+    );
+    final session = _directAudioSession();
+    final future = store.download(session);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    store.cancelDownload(session.id);
+
+    await expectLater(
+      future,
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.error,
+          'error',
+          OfflineAudioError.cancelled,
+        ),
+      ),
+    );
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
+
+  test('超过总容量上限时拒绝下载', () async {
+    final store = OfflineAudioStore(
+      client: MockClient(
+        (_) async => http.Response.bytes(
+          List<int>.filled(2048, 1),
+          200,
+          headers: {'content-type': 'audio/mpeg', 'content-length': '2048'},
+        ),
+      ),
+      directoryProvider: () async => temporaryDirectory,
+      maxTotalBytes: 100,
+    );
+
+    await expectLater(
+      store.download(_directAudioSession()),
+      throwsA(
+        isA<OfflineAudioException>().having(
+          (error) => error.error,
+          'error',
+          OfflineAudioError.quotaExceeded,
+        ),
+      ),
+    );
+    expect(
+      temporaryDirectory.listSync(recursive: true).whereType<File>(),
+      isEmpty,
+    );
+    store.dispose();
+  });
 }
 
 GuidedSession _directAudioSession({Uri? playbackUrl}) => GuidedSession(

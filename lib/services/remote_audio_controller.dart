@@ -6,17 +6,42 @@ import 'package:just_audio_background/just_audio_background.dart';
 
 import '../domain/stillow_models.dart';
 import 'progressive_loop_volume.dart';
+import 'user_sound_access.dart';
 
 enum PlaybackStatus { idle, loading, playing, paused, complete, error }
 
-class RemoteAudioController extends ChangeNotifier {
-  RemoteAudioController({AudioPlayer? player})
-    : _player = player ?? AudioPlayer() {
+enum PlaybackFailure {
+  loadFailed,
+  loadInterrupted,
+  unavailable,
+  stoppedRetry,
+  stopped,
+}
+
+abstract class SleepPlaybackController extends ChangeNotifier {
+  PlaybackStatus get status;
+  PlaybackFailure? get failure;
+  DateTime? get sleepTimerEndsAt;
+  bool get isPlaying;
+
+  Future<void> start(PlaybackItem item);
+  Future<void> pause();
+  Future<void> resume();
+  Future<void> stop();
+  void setSleepTimer(Duration? duration);
+}
+
+class RemoteAudioController extends SleepPlaybackController {
+  RemoteAudioController({AudioPlayer? player, UserSoundAccess? userSoundAccess})
+    : _player = player ?? AudioPlayer(),
+      _userSoundAccess = userSoundAccess ?? const PluginUserSoundAccess() {
     _playerSubscription = _player.playerStateStream.listen(_handlePlayerState);
     _positionSubscription = _player.positionStream.listen(_handlePosition);
   }
 
   final AudioPlayer _player;
+  final UserSoundAccess _userSoundAccess;
+  UserSoundPlaybackHandle? _playbackHandle;
   static const _loopVolume = ProgressiveLoopVolume();
   late final StreamSubscription<PlayerState> _playerSubscription;
   late final StreamSubscription<Duration> _positionSubscription;
@@ -27,46 +52,66 @@ class RemoteAudioController extends ChangeNotifier {
   double _fadeGain = 1;
   bool _attenuateMusicLoops = false;
 
+  @override
   PlaybackStatus status = PlaybackStatus.idle;
-  GuidedSession? session;
-  String? errorMessage;
+  PlaybackItem? item;
+  @override
+  PlaybackFailure? failure;
+  @override
   DateTime? sleepTimerEndsAt;
 
+  @override
   bool get isPlaying => status == PlaybackStatus.playing;
-  Future<void> start(GuidedSession nextSession) async {
-    if (!nextSession.isInAppAudio) {
-      throw ArgumentError('不支持的素材不能交给音频播放器');
-    }
 
-    session = nextSession;
+  @override
+  Future<void> start(PlaybackItem nextItem) async {
+    item = nextItem;
     _previousPosition = Duration.zero;
     _completedMusicLoops = 0;
     _loopGain = 1;
     _fadeGain = 1;
-    _attenuateMusicLoops =
-        nextSession.loop && nextSession.kind == SessionKind.music;
-    errorMessage = null;
+    _attenuateMusicLoops = nextItem.attenuateLoops;
+    failure = null;
     status = PlaybackStatus.loading;
     notifyListeners();
 
     try {
-      await _applyVolume();
-      await _player.setLoopMode(nextSession.loop ? LoopMode.one : LoopMode.off);
-      final mediaItem = MediaItem(
-        id: nextSession.id,
-        album: 'Stillow 夜间陪伴',
-        title: nextSession.title,
-        artist: nextSession.creator,
-        duration: nextSession.durationSeconds == null
-            ? null
-            : Duration(seconds: nextSession.durationSeconds!),
-      );
-      if (nextSession.localFilePath case final localFilePath?) {
-        await _player.setAudioSource(
-          AudioSource.file(localFilePath, tag: mediaItem),
+      await _endPlaybackAccess();
+      var filePath = nextItem.localFilePath;
+      var playbackUrl = nextItem.playbackUrl;
+      final userSound = nextItem.userSound;
+      if (userSound != null) {
+        _playbackHandle = await _userSoundAccess.beginPlayback(
+          sourcePath: userSound.sourcePath ?? userSound.localFilePath ?? '',
+          accessBookmark: userSound.accessBookmark,
         );
-      } else if (nextSession.playbackType == PlaybackType.assetAudio) {
-        final assetPath = nextSession.assetPath;
+        filePath = _playbackHandle?.filePath ?? filePath;
+        playbackUrl = _playbackHandle?.uri ?? playbackUrl;
+      }
+      if ((filePath == null || filePath.isEmpty) &&
+          nextItem.assetPath == null &&
+          playbackUrl == null) {
+        throw ArgumentError('不支持的素材不能交给音频播放器');
+      }
+      await _applyVolume();
+      await _player.setLoopMode(nextItem.loop ? LoopMode.one : LoopMode.off);
+      final mediaItem = MediaItem(
+        id: nextItem.id,
+        album: 'Stillow',
+        title: nextItem.title,
+        artist: nextItem.creator,
+        duration: nextItem.durationSeconds == null
+            ? null
+            : Duration(seconds: nextItem.durationSeconds!),
+      );
+      if (filePath != null &&
+          filePath.isNotEmpty &&
+          !filePath.startsWith('content:')) {
+        await _player.setAudioSource(
+          AudioSource.file(filePath, tag: mediaItem),
+        );
+      } else if (nextItem.playbackType == PlaybackType.assetAudio) {
+        final assetPath = nextItem.assetPath;
         if (assetPath == null || assetPath.isEmpty) {
           throw const FormatException('本地素材缺少 assetPath');
         }
@@ -75,16 +120,19 @@ class RemoteAudioController extends ChangeNotifier {
         );
       } else {
         await _player.setAudioSource(
-          AudioSource.uri(nextSession.playbackUrl, tag: mediaItem),
+          AudioSource.uri(playbackUrl!, tag: mediaItem),
         );
       }
       unawaited(_play());
     } on PlayerException catch (_) {
-      _setError('暂时没能载入这段声音，可以换一个试试。');
+      await _endPlaybackAccess();
+      _setError(PlaybackFailure.loadFailed);
     } on PlayerInterruptedException catch (_) {
-      _setError('声音载入被打断了，可以稍后再试。');
+      await _endPlaybackAccess();
+      _setError(PlaybackFailure.loadInterrupted);
     } catch (_) {
-      _setError('这段声音暂时不可用，可以换一个试试。');
+      await _endPlaybackAccess();
+      _setError(PlaybackFailure.unavailable);
     }
   }
 
@@ -92,19 +140,22 @@ class RemoteAudioController extends ChangeNotifier {
     try {
       await _player.play();
     } on PlayerException catch (_) {
-      _setError('播放中断了，可以重新播放或换一个声音。');
+      _setError(PlaybackFailure.stoppedRetry);
     } catch (_) {
-      _setError('播放中断了，可以换一个声音试试。');
+      _setError(PlaybackFailure.stopped);
     }
   }
 
+  @override
   Future<void> resume() async {
-    if (session == null || status == PlaybackStatus.complete) return;
+    if (item == null || status == PlaybackStatus.complete) return;
     unawaited(_play());
   }
 
+  @override
   Future<void> pause() => _player.pause();
 
+  @override
   void setSleepTimer(Duration? duration) {
     _sleepTimer?.cancel();
     _sleepTimer = null;
@@ -128,20 +179,26 @@ class RemoteAudioController extends ChangeNotifier {
         return;
       }
       if (remaining <= const Duration(seconds: 30)) {
-        _fadeGain = (remaining.inMilliseconds / 30000)
+        final nextFade = (remaining.inMilliseconds / 30000)
             .clamp(0.0, 1.0)
             .toDouble();
-        unawaited(_applyVolume());
+        if (nextFade != _fadeGain) {
+          _fadeGain = nextFade;
+          unawaited(_applyVolume());
+          notifyListeners();
+        }
       }
-      notifyListeners();
     });
   }
 
+  @override
   Future<void> stop() async {
     _sleepTimer?.cancel();
     _sleepTimer = null;
     sleepTimerEndsAt = null;
     await _player.stop();
+    await _endPlaybackAccess();
+    item = null;
     _previousPosition = Duration.zero;
     _completedMusicLoops = 0;
     _loopGain = 1;
@@ -178,23 +235,35 @@ class RemoteAudioController extends ChangeNotifier {
       ProcessingState.loading ||
       ProcessingState.buffering => PlaybackStatus.loading,
       ProcessingState.completed => PlaybackStatus.complete,
-      ProcessingState.idle when session == null => PlaybackStatus.idle,
+      ProcessingState.idle when item == null => PlaybackStatus.idle,
       _ when playerState.playing => PlaybackStatus.playing,
-      _ when session != null => PlaybackStatus.paused,
+      _ when item != null => PlaybackStatus.paused,
       _ => PlaybackStatus.idle,
     };
     notifyListeners();
   }
 
-  void _setError(String message) {
-    errorMessage = message;
+  void _setError(PlaybackFailure nextFailure) {
+    failure = nextFailure;
     status = PlaybackStatus.error;
     notifyListeners();
+  }
+
+  Future<void> _endPlaybackAccess() async {
+    final handle = _playbackHandle;
+    _playbackHandle = null;
+    if (handle == null) return;
+    try {
+      await _userSoundAccess.endPlayback();
+    } catch (_) {
+      // Scoped access is released best-effort when playback ends.
+    }
   }
 
   @override
   void dispose() {
     _sleepTimer?.cancel();
+    unawaited(_endPlaybackAccess());
     unawaited(_playerSubscription.cancel());
     unawaited(_positionSubscription.cancel());
     unawaited(_player.dispose());

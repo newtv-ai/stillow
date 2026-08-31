@@ -18,15 +18,10 @@ enum SleepHealthSyncState {
 enum HealthHostPlatform { android, ios, unsupported }
 
 class SleepHealthSyncResult {
-  const SleepHealthSyncResult({
-    required this.state,
-    this.samples = const [],
-    this.message,
-  });
+  const SleepHealthSyncResult({required this.state, this.samples = const []});
 
   final SleepHealthSyncState state;
   final List<HealthSleepSample> samples;
-  final String? message;
 }
 
 abstract interface class SleepHealthGateway {
@@ -84,7 +79,6 @@ class PluginSleepHealthGateway implements SleepHealthGateway {
     if (availability != SleepHealthAvailability.available) {
       return const SleepHealthSyncResult(
         state: SleepHealthSyncState.unavailable,
-        message: '这台设备暂时不能读取系统睡眠记录。',
       );
     }
 
@@ -102,7 +96,6 @@ class PluginSleepHealthGateway implements SleepHealthGateway {
       if (!authorized) {
         return const SleepHealthSyncResult(
           state: SleepHealthSyncState.permissionDeclined,
-          message: '没有取得读取权限。以后想连接时，再从这里开始就好。',
         );
       }
 
@@ -114,31 +107,20 @@ class PluginSleepHealthGateway implements SleepHealthGateway {
       );
       final samples = normalizeHealthSleepPoints(points);
       if (samples.isEmpty) {
-        return const SleepHealthSyncResult(
-          state: SleepHealthSyncState.noData,
-          message: '近 30 天没有读到睡眠记录，也可能是系统没有开放读取。',
-        );
+        return const SleepHealthSyncResult(state: SleepHealthSyncState.noData);
       }
       return SleepHealthSyncResult(
         state: SleepHealthSyncState.synced,
         samples: samples,
-        message: '已更新这台设备中的最近记录。',
       );
     } on UnsupportedError {
       return const SleepHealthSyncResult(
         state: SleepHealthSyncState.unavailable,
-        message: '这台设备暂时不能读取系统睡眠记录。',
       );
     } on PlatformException {
-      return const SleepHealthSyncResult(
-        state: SleepHealthSyncState.failed,
-        message: '这次没有同步好。设备解锁后再试也可以。',
-      );
+      return const SleepHealthSyncResult(state: SleepHealthSyncState.failed);
     } catch (_) {
-      return const SleepHealthSyncResult(
-        state: SleepHealthSyncState.failed,
-        message: '这次没有同步好，稍后再试也可以。',
-      );
+      return const SleepHealthSyncResult(state: SleepHealthSyncState.failed);
     }
   }
 

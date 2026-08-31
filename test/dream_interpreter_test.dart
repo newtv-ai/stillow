@@ -25,4 +25,21 @@ void main() {
     final interpreter = await DreamInterpreter.loadAsset();
     expect(interpreter.interpret('   '), isEmpty);
   });
+
+  test('英语梦境词库提供独立的英文娱乐文案', () async {
+    final interpreter = await DreamInterpreter.loadAsset(
+      path: 'assets/content/dream_symbols_en.json',
+    );
+
+    final readings = interpreter.interpret('I was flying over a quiet lake');
+
+    expect(readings, isNotEmpty);
+    expect(
+      readings.map((reading) => reading.title),
+      containsAll(<String>[
+        'Water and moving feelings',
+        'Freedom and perspective',
+      ]),
+    );
+  });
 }

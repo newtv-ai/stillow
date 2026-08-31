@@ -17,15 +17,45 @@ class LocalPreferenceStore implements PreferenceStore {
   final PrivateJsonFile _file;
 
   @override
-  Future<UserProfile> load() async => _profileFromJson(await _file.read());
+  Future<UserProfile> load() async {
+    try {
+      return _profileFromJson(await _file.read());
+    } catch (_) {
+      return const UserProfile();
+    }
+  }
 
   @override
   Future<void> save(UserProfile profile) =>
       _file.write(_profileToJson(profile));
 }
 
+/// Keeps the in-memory profile authoritative and serializes disk writes.
+///
+/// Callers must [apply] from the latest [value]; overlapping UI actions then
+/// compose instead of letting a later full-snapshot save erase an earlier one.
+final class PreferenceController {
+  PreferenceController({
+    required PreferenceStore store,
+    required UserProfile initial,
+  }) : _store = store,
+       value = initial;
+
+  final PreferenceStore _store;
+  UserProfile value;
+  Future<void> _pending = Future.value();
+
+  Future<void> apply(UserProfile Function(UserProfile current) update) {
+    value = update(value);
+    final snapshot = value;
+    final operation = _pending.then((_) => _store.save(snapshot));
+    _pending = operation.catchError((_) {});
+    return operation;
+  }
+}
+
 Map<String, Object?> _profileToJson(UserProfile profile) => {
-  'version': 2,
+  'version': 4,
   'onboardingComplete': profile.onboardingComplete,
   'supportNeed': profile.supportNeed?.name,
   'soundPreference': profile.soundPreference?.name,
@@ -39,7 +69,11 @@ Map<String, Object?> _profileToJson(UserProfile profile) => {
   'sessionAffinities': profile.sessionAffinities,
   'favoriteSessionIds': profile.favoriteSessionIds.toList()..sort(),
   'regionPreference': profile.regionPreference.name,
+  'appLanguagePreference': profile.appLanguagePreference.name,
+  'audioLanguagePreference': profile.audioLanguagePreference.name,
   'nightPresetSessionId': profile.nightPresetSessionId,
+  'tonightDefaultUserSoundId': profile.tonightDefaultUserSoundId,
+  'nightPresetUserSoundId': profile.nightPresetUserSoundId,
 };
 
 UserProfile _profileFromJson(Object? value) {
@@ -49,42 +83,65 @@ UserProfile _profileFromJson(Object? value) {
     onboardingComplete: json['onboardingComplete'] == true,
     supportNeed: _enumByName(
       SupportNeed.values,
-      json['supportNeed'] as String?,
+      _asString(json['supportNeed']),
     ),
     soundPreference: _enumByName(
       SoundPreference.values,
-      json['soundPreference'] as String?,
+      _asString(json['soundPreference']),
     ),
     guidancePreference: _enumByName(
       GuidancePreference.values,
-      json['guidancePreference'] as String?,
+      _asString(json['guidancePreference']),
     ),
-    lastSessionId: json['lastSessionId'] as String?,
+    lastSessionId: _asString(json['lastSessionId']),
     lastUseContext:
         _enumByName(
           SleepUseContext.values,
-          json['lastUseContext'] as String?,
+          _asString(json['lastUseContext']),
         ) ??
         SleepUseContext.bedtime,
     pendingFeedback: json['pendingFeedback'] == true,
     lastFeedback: _enumByName(
       SessionFeedback.values,
-      json['lastFeedback'] as String?,
+      _asString(json['lastFeedback']),
     ),
-    noHelpCount: (json['noHelpCount'] as num?)?.toInt().clamp(0, 1000) ?? 0,
+    noHelpCount: (_asNum(json['noHelpCount'])?.toInt().clamp(0, 1000)) ?? 0,
     tagAffinities: _decodeAffinities(json['tagAffinities']),
     sessionAffinities: _decodeAffinities(json['sessionAffinities']),
     favoriteSessionIds: Set.unmodifiable(
-      (json['favoriteSessionIds'] as List? ?? const []).whereType<String>(),
+      _asStringList(json['favoriteSessionIds']),
     ),
     regionPreference:
         _enumByName(
           RegionPreference.values,
-          json['regionPreference'] as String?,
+          _asString(json['regionPreference']),
         ) ??
         RegionPreference.automatic,
-    nightPresetSessionId: json['nightPresetSessionId'] as String?,
+    appLanguagePreference:
+        _enumByName(
+          AppLanguagePreference.values,
+          _asString(json['appLanguagePreference']),
+        ) ??
+        AppLanguagePreference.system,
+    audioLanguagePreference:
+        _enumByName(
+          AudioLanguagePreference.values,
+          _asString(json['audioLanguagePreference']),
+        ) ??
+        AudioLanguagePreference.automatic,
+    nightPresetSessionId: _asString(json['nightPresetSessionId']),
+    tonightDefaultUserSoundId: _asString(json['tonightDefaultUserSoundId']),
+    nightPresetUserSoundId: _asString(json['nightPresetUserSoundId']),
   );
+}
+
+String? _asString(Object? value) => value is String ? value : null;
+
+num? _asNum(Object? value) => value is num ? value : null;
+
+List<String> _asStringList(Object? value) {
+  if (value is! List) return const [];
+  return value.whereType<String>().toList(growable: false);
 }
 
 Map<String, int> _decodeAffinities(Object? value) {

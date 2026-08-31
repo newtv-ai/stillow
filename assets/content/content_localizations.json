@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "locales": {
+    "en": {
+      "candidate": {
+        "spokenKnowledge": "Spoken knowledge",
+        "soundscape": "Ambient sound",
+        "music": "Gentle music",
+        "durationUnknown": "duration pending",
+        "awaitingReview": "awaiting review",
+        "candidatePrefix": "Candidate"
+      },
+      "sessions": {
+        "guided-body-scan-female-en": {
+          "title": "22-minute body scan",
+          "subtitle": "A gently paced guide by Carolyn McManus, moving from breathing to physical sensations with spacious pauses.",
+          "shortLabel": "Female voice · about 22 min"
+        },
+        "music-first-light": {
+          "title": "First light",
+          "subtitle": "Soft piano over a quiet background for about 25 minutes, with smooth transitions and a gradual fade.",
+          "shortLabel": "Gentle music · about 25 min"
+        },
+        "music-contemplation": {
+          "title": "Night unfolding",
+          "subtitle": "Slow ambient music for about 25 minutes, with smooth transitions and a gradual fade.",
+          "shortLabel": "Ambient music · about 25 min"
+        },
+        "music-soft-piano-loop": {
+          "title": "A familiar piano phrase",
+          "subtitle": "A gentle, repeating piano phrase that becomes a little quieter with each loop.",
+          "shortLabel": "Piano · looping"
+        },
+        "breathing-coherent-gong": {
+          "title": "Steady breathing · 5 seconds in / 5 out",
+          "subtitle": "A low gong marks a slow rhythm for about 20 minutes. Keep breathing naturally and pause if you feel dizzy, short of breath, or uncomfortable.",
+          "shortLabel": "Breathing rhythm · about 20 min"
+        },
+        "narrative-city-lights-zh": {
+          "title": "Long Chinese reading: City Lights",
+          "subtitle": "A Taiwanese Mandarin female voice reads about Charlie Chaplin's classic silent film at a steady pace for about 36 minutes.",
+          "shortLabel": "Chinese female voice · about 36 min"
+        },
+        "narrative-cong-cong-zh": {
+          "title": "Chinese reading: Transient Days",
+          "subtitle": "A Mandarin female voice reads Zhu Ziqing's short essay at a steady pace for about four minutes.",
+          "shortLabel": "Chinese female voice · about 4 min"
+        },
+        "narrative-ge-sheng-zh": {
+          "title": "Chinese reading: Song",
+          "subtitle": "A clear Mandarin female voice reads Zhu Ziqing's short essay for about three minutes.",
+          "shortLabel": "Chinese female voice · about 3 min"
+        },
+        "spoken-mosquito-life-zh": {
+          "title": "Chinese science reading: How mosquitoes live",
+          "subtitle": "A Mandarin female voice reads a calm overview of mosquito life and behavior for about 13 minutes.",
+          "shortLabel": "Chinese female voice · about 13 min"
+        },
+        "intl-brown-noise": {
+          "title": "Low brown noise",
+          "subtitle": "Steady low-frequency noise for masking nearby sounds, with a default fade timer. It is not presented as a universal sleep aid.",
+          "shortLabel": "Brown noise · looping"
+        },
+        "intl-midnight-ocean": {
+          "title": "Midnight ocean",
+          "subtitle": "Natural, repeating waves for people who enjoy nature sounds or want to mask nearby noise.",
+          "shortLabel": "Ocean waves · looping"
+        },
+        "intl-gentle-rain": {
+          "title": "Steady light rain",
+          "subtitle": "Even, continuous rain for masking nearby sounds. The short loop still needs further listening review.",
+          "shortLabel": "Light rain · looping"
+        },
+        "study-zh-hydrochloric-acid": {
+          "title": "Quiet knowledge: Hydrochloric acid",
+          "subtitle": "A Taiwanese Mandarin female voice covers chemical properties, production, and uses at a steady pace for about 20 minutes.",
+          "shortLabel": "Technical reading · female voice · about 20 min"
+        },
+        "study-zh-europe": {
+          "title": "Quiet knowledge: Europe",
+          "subtitle": "A low-pitched Mandarin male voice reads geography, history, politics, and population material for about 24 minutes.",
+          "shortLabel": "Knowledge reading · male voice · about 24 min"
+        },
+        "study-zh-wikipedia-2024": {
+          "title": "Quiet knowledge: Chinese Wikipedia",
+          "subtitle": "A Mandarin male voice reads a longer overview of history, community, and operation for about 39 minutes.",
+          "shortLabel": "Knowledge reading · male voice · about 39 min"
+        },
+        "study-en-logic": {
+          "title": "Quiet knowledge: Logic",
+          "subtitle": "A Scottish English male voice reads a long article on formal and philosophical logic for about 69 minutes.",
+          "shortLabel": "Technical reading · male voice · about 69 min"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "themes": [
+    {
+      "id": "falling",
+      "keywords": ["fall", "falling", "drop", "cliff", "height", "坠落", "掉下"],
+      "title": "Weightlessness and letting go",
+      "body": "Stories about dreams often connect falling with a moment that feels outside our control. It may also echo the weightless sensation of the body relaxing as sleep begins. It does not predict something bad.",
+      "prompt": "Is there anything you would like to set down for a while?"
+    },
+    {
+      "id": "chased",
+      "keywords": ["chase", "chased", "running away", "hide", "monster", "追赶", "逃跑"],
+      "title": "Chasing and avoiding",
+      "body": "Being chased is often described as an imaginative rehearsal of pressure or unfinished concerns. It may simply be a vivid story that was easier to remember.",
+      "prompt": "If you could pause inside the dream, what help would you want first?"
+    },
+    {
+      "id": "teeth",
+      "keywords": ["tooth", "teeth", "loose tooth", "牙齿", "掉牙"],
+      "title": "Change and self-consciousness",
+      "body": "Dreams about teeth are common. People sometimes connect them with change, appearance, or expression; they can also reflect sensations from the mouth during sleep.",
+      "prompt": "Is there a small change in life that still feels unfamiliar?"
+    },
+    {
+      "id": "water",
+      "keywords": ["water", "sea", "river", "lake", "flood", "rain", "swim", "海", "河", "下雨"],
+      "title": "Water and moving feelings",
+      "body": "Water in dreams is often used as a metaphor for emotion: still water can feel calm, while rough water can feel like too much information. The personal meaning belongs to the dreamer.",
+      "prompt": "Did the water make you want to approach, move away, or simply watch?"
+    },
+    {
+      "id": "flying",
+      "keywords": ["fly", "flying", "float", "wing", "sky", "飞", "漂浮"],
+      "title": "Freedom and perspective",
+      "body": "Flying dreams are often playfully linked with freedom, curiosity, or seeing things from farther away. Fear in the dream may instead reflect the imagined loss of solid ground.",
+      "prompt": "While flying, did you feel more like exploring or looking for somewhere to land?"
+    },
+    {
+      "id": "school",
+      "keywords": ["class", "exam", "test", "homework", "teacher", "school", "late", "上课", "考试"],
+      "title": "School and being evaluated",
+      "body": "School and exam dreams are common even years after graduation. They are often read as a collage of feeling unprepared, being evaluated, and old memories.",
+      "prompt": "Has anything recently made you feel as though you are being graded?"
+    },
+    {
+      "id": "lost",
+      "keywords": ["lost", "missed", "train", "plane", "cannot find", "迷路", "找不到"],
+      "title": "Finding direction",
+      "body": "Getting lost or missing transport in a dream is often connected with pace, choices, or fear of running late. The brain may also be rearranging familiar places.",
+      "prompt": "Without any need to hurry, which turning point would you want to see more clearly?"
+    },
+    {
+      "id": "animals",
+      "keywords": ["cat", "dog", "snake", "bird", "tiger", "animal", "猫", "狗", "蛇"],
+      "title": "Instinct and companionship",
+      "body": "Animals carry very different meanings across cultures. Your own feeling of familiarity, fear, or closeness in the dream may be more interesting than a fixed symbol.",
+      "prompt": "Did the animal feel like a companion, a signal, or an unfamiliar visitor?"
+    },
+    {
+      "id": "house",
+      "keywords": ["house", "home", "room", "door", "basement", "hallway", "房子", "房间"],
+      "title": "Space and inner rooms",
+      "body": "Houses in dreams are often treated as metaphors for the self and one's living space. A new room may suggest novelty, or simply a rearranged memory of real places.",
+      "prompt": "Which part of that space made you want to stay a little longer?"
+    },
+    {
+      "id": "fire",
+      "keywords": ["fire", "burn", "burning", "explosion", "smoke", "火", "燃烧"],
+      "title": "Energy and change",
+      "body": "In stories, fire can mean destruction, warmth, or renewal. The feeling inside your dream is more interesting than any fixed prediction of good or bad luck.",
+      "prompt": "Did the fire feel dangerous, warm, or connected with something you wanted to change?"
+    }
+  ],
+  "fallback": {
+    "id": "open",
+    "title": "A collage that belongs to you",
+    "body": "Dreams combine memories, sensations, and chance fragments, so there may be no standard answer. The feeling that remains after waking can be the most interesting clue.",
+    "prompt": "What stays with you most: an image, a person, or a feeling?"
+  }
+}

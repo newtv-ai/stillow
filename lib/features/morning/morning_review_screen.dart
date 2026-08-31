@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/sleep_history.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 import 'dream_interpretation_screen.dart';
@@ -30,10 +31,11 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final summary = switch (_feeling) {
-      MorningFeeling.rested => '今天似乎恢复得还不错。',
-      MorningFeeling.ordinary => '今天的恢复感比较普通。',
-      MorningFeeling.tired => '昨晚似乎没有休息得很舒服。',
+      MorningFeeling.rested => l10n.morningRestedSummary,
+      MorningFeeling.ordinary => l10n.morningOrdinarySummary,
+      MorningFeeling.tired => l10n.morningTiredSummary,
       null => null,
     };
 
@@ -47,18 +49,18 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
               alignment: Alignment.centerLeft,
               child: QuietIconButton(
                 icon: Icons.arrow_back_rounded,
-                tooltip: '返回',
+                tooltip: l10n.back,
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
             const SizedBox(height: 18),
             Text(
-              '醒来以后，\n感觉怎么样？',
+              l10n.morningTitle,
               style: Theme.of(context).textTheme.displaySmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '只凭现在的感觉选一个。没有标准答案。',
+              l10n.morningSubtitle,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 18),
@@ -67,21 +69,21 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
               runSpacing: 8,
               children: [
                 _FeelingChip(
-                  label: '挺有精神',
+                  label: l10n.feelingRested,
                   selected: _feeling == MorningFeeling.rested,
                   onTap: () {
                     _choose(MorningFeeling.rested);
                   },
                 ),
                 _FeelingChip(
-                  label: '还算普通',
+                  label: l10n.feelingOrdinary,
                   selected: _feeling == MorningFeeling.ordinary,
                   onTap: () {
                     _choose(MorningFeeling.ordinary);
                   },
                 ),
                 _FeelingChip(
-                  label: '还是有点累',
+                  label: l10n.feelingTired,
                   selected: _feeling == MorningFeeling.tired,
                   onTap: () {
                     _choose(MorningFeeling.tired);
@@ -109,10 +111,10 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
                     const SizedBox(height: 6),
                     Text(
                       widget.onFeelingSelected == null
-                          ? '这是你此刻的主观感受，不是睡眠分数。'
+                          ? l10n.morningSubjectiveOnly
                           : _saving
-                          ? '正在轻轻留在这台设备中…'
-                          : '这是主观感受，不是睡眠分数。已留在这台设备中，最多保留 30 天。',
+                          ? l10n.morningSaving
+                          : l10n.morningSaved,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -137,12 +139,12 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '还记得昨晚的梦吗？',
+                    l10n.morningDreamTitle,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '写几个画面，得到一份轻松的娱乐解析。',
+                    l10n.morningDreamBody,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 14),
@@ -152,7 +154,7 @@ class _MorningReviewScreenState extends State<MorningReviewScreen> {
                         builder: (_) => const DreamInterpretationScreen(),
                       ),
                     ),
-                    child: const Text('看看我的梦'),
+                    child: Text(l10n.morningDreamAction),
                   ),
                 ],
               ),

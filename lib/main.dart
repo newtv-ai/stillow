@@ -5,22 +5,41 @@ import 'app.dart';
 import 'data/content_catalog.dart';
 import 'data/preference_store.dart';
 import 'data/sleep_history_store.dart';
+import 'data/user_sound_store.dart';
+import 'domain/stillow_models.dart';
 import 'services/sleep_health_gateway.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final store = LocalPreferenceStore();
+  final profile = await store.load();
+  final deviceLocale = WidgetsBinding.instance.platformDispatcher.locale;
+  final notificationLanguage = switch (profile.appLanguagePreference) {
+    AppLanguagePreference.english => 'en',
+    AppLanguagePreference.simplifiedChinese => 'zh',
+    AppLanguagePreference.system =>
+      deviceLocale.languageCode == 'zh' ? 'zh' : 'en',
+  };
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.stillow.audio',
-    androidNotificationChannelName: 'Stillow 夜间陪伴',
+    androidNotificationChannelName: notificationLanguage == 'zh'
+        ? 'Stillow 夜间陪伴'
+        : 'Stillow night audio',
     androidNotificationIcon: 'drawable/ic_stillow_notification',
     androidNotificationOngoing: true,
   );
 
-  final store = LocalPreferenceStore();
-  final profile = await store.load();
   final catalog = await ContentCatalog.loadAsset();
-  final locale = WidgetsBinding.instance.platformDispatcher.locale;
-  final region = ContentRegionResolver.fromCountryCode(locale.countryCode);
+  final userSoundStore = LocalUserSoundStore();
+  List<UserSound> userSounds;
+  try {
+    userSounds = await userSoundStore.load();
+  } catch (_) {
+    userSounds = const [];
+  }
+  final region = ContentRegionResolver.fromCountryCode(
+    deviceLocale.countryCode,
+  );
 
   runApp(
     StillowApp(
@@ -30,6 +49,8 @@ Future<void> main() async {
       region: region,
       sleepHistoryStore: LocalSleepHistoryStore(),
       sleepHealthGateway: PluginSleepHealthGateway(),
+      initialUserSounds: userSounds,
+      userSoundStore: userSoundStore,
     ),
   );
 }

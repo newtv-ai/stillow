@@ -2,9 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../data/content_catalog.dart';
 import '../../data/sleep_history_store.dart';
 import '../../domain/sleep_history.dart';
 import '../../domain/stillow_models.dart';
+import '../../l10n/l10n.dart';
 import '../../services/sleep_health_gateway.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
@@ -14,10 +16,12 @@ class SleepHistoryScreen extends StatefulWidget {
     super.key,
     required this.historyStore,
     required this.healthGateway,
+    this.catalog,
   });
 
   final SleepHistoryStore historyStore;
   final SleepHealthGateway healthGateway;
+  final ContentCatalog? catalog;
 
   @override
   State<SleepHistoryScreen> createState() => _SleepHistoryScreenState();
@@ -67,69 +71,79 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
     }
     final snapshot = await widget.historyStore.load();
     if (!mounted) return;
+    final l10n = context.l10n;
     setState(() {
       _snapshot = snapshot;
       _syncing = false;
-      _message = result.message;
+      _message = switch (result.state) {
+        SleepHealthSyncState.synced => l10n.healthSyncSuccess,
+        SleepHealthSyncState.noData => l10n.healthSyncNoData,
+        SleepHealthSyncState.permissionDeclined =>
+          l10n.healthSyncPermissionDeclined,
+        SleepHealthSyncState.unavailable => l10n.healthSyncUnavailable,
+        SleepHealthSyncState.failed => l10n.healthSyncFailed,
+      };
     });
   }
 
-  Future<bool> _confirmHealthRead() async =>
-      await showModalBottomSheet<bool>(
-        context: context,
-        backgroundColor: StillowColors.surface,
-        showDragHandle: true,
-        builder: (context) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '只读最近的睡眠记录',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '接下来系统会询问是否允许读取睡眠时段和睡眠阶段。'
-                  'Stillow 不读取心率或 HRV，不写入健康数据，也不在后台同步。',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('先不连接'),
-                    ),
-                    const Spacer(),
-                    FilledButton.tonal(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Text('继续'),
-                    ),
-                  ],
-                ),
-              ],
+  Future<bool> _confirmHealthRead() async {
+    final l10n = context.l10n;
+    return await showModalBottomSheet<bool>(
+          context: context,
+          backgroundColor: StillowColors.surface,
+          showDragHandle: true,
+          builder: (context) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.healthPermissionTitle,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    l10n.healthPermissionBody,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(l10n.healthNotNow),
+                      ),
+                      const Spacer(),
+                      FilledButton.tonal(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: Text(l10n.continueLabel),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ) ??
-      false;
+        ) ??
+        false;
+  }
 
   Future<void> _installHealthConnect() async {
     await widget.healthGateway.openInstallOrUpdate();
     if (!mounted) return;
-    setState(() => _message = '安装或更新完成后，回到这里再连接就好。');
+    setState(() => _message = context.l10n.healthInstallReturn);
   }
 
   Future<void> _disconnectHealth() async {
+    final l10n = context.l10n;
     final confirmed = await _confirm(
-      title: '断开健康数据？',
+      title: l10n.healthDisconnectTitle,
       body: widget.healthGateway.hostPlatform == HealthHostPlatform.ios
-          ? '会清除 Stillow 保存的健康记录。Apple 健康的读取权限仍需在系统“健康”中管理。'
-          : '会撤销 Stillow 的 Health Connect 权限，并清除 App 中保存的健康记录。',
-      action: '断开并清除',
+          ? l10n.healthDisconnectIosBody
+          : l10n.healthDisconnectAndroidBody,
+      action: l10n.healthDisconnectAction,
     );
     if (!confirmed) return;
     try {
@@ -142,16 +156,17 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
     setState(() {
       _snapshot = snapshot;
       _message = widget.healthGateway.hostPlatform == HealthHostPlatform.ios
-          ? 'App 内的健康记录已清除；系统授权可在 Apple 健康中管理。'
-          : 'Health Connect 已断开，本机缓存也已清除。';
+          ? l10n.healthDisconnectedIos
+          : l10n.healthDisconnectedAndroid;
     });
   }
 
   Future<void> _deleteLocalDay(String dayKey) async {
+    final l10n = context.l10n;
     final confirmed = await _confirm(
-      title: '移除这晚的本地记录？',
-      body: '只会移除 Stillow 的声音陪伴记录和晨间感受，不会影响系统健康数据。',
-      action: '移除',
+      title: l10n.historyRemoveNightTitle,
+      body: l10n.historyRemoveNightBody,
+      action: l10n.remove,
     );
     if (!confirmed) return;
     await widget.historyStore.deleteLocalDay(dayKey);
@@ -160,17 +175,18 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
   }
 
   Future<void> _clearAll() async {
+    final l10n = context.l10n;
     final confirmed = await _confirm(
-      title: '清除 Stillow 中的全部记录？',
-      body: '声音陪伴、晨间感受和已同步的健康记录都会从这台设备中移除。收藏和个性化偏好不会受影响。',
-      action: '全部清除',
+      title: l10n.historyClearTitle,
+      body: l10n.historyClearBody,
+      action: l10n.clearAll,
     );
     if (!confirmed) return;
     await widget.historyStore.clearAll();
     if (!mounted) return;
     setState(() {
       _snapshot = const SleepHistorySnapshot();
-      _message = '这台设备中的睡眠记录已经清除。';
+      _message = l10n.historyCleared;
     });
   }
 
@@ -198,7 +214,7 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('先留着'),
+                      child: Text(context.l10n.keepForNow),
                     ),
                     const Spacer(),
                     FilledButton.tonal(
@@ -216,6 +232,7 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final summaries = summarizeSleepNights(_snapshot.healthSamples);
     final localNights = _groupLocalNights(_snapshot);
     return Scaffold(
@@ -228,15 +245,18 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
               alignment: Alignment.centerLeft,
               child: QuietIconButton(
                 icon: Icons.arrow_back_rounded,
-                tooltip: '返回',
+                tooltip: l10n.back,
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
             const SizedBox(height: 28),
-            Text('最近的夜晚', style: Theme.of(context).textTheme.displaySmall),
+            Text(
+              l10n.historyTitle,
+              style: Theme.of(context).textTheme.displaySmall,
+            ),
             const SizedBox(height: 12),
             Text(
-              '只帮助你回顾，不给睡眠打分。记录最多保留 30 天。',
+              l10n.historyIntro,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 26),
@@ -264,21 +284,25 @@ class _SleepHistoryScreenState extends State<SleepHistoryScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Stillow 本地记录',
+                      l10n.localHistoryTitle,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
                   if (!_snapshot.isEmpty)
-                    TextButton(onPressed: _clearAll, child: const Text('清除全部')),
+                    TextButton(
+                      onPressed: _clearAll,
+                      child: Text(l10n.clearAll),
+                    ),
                 ],
               ),
               const SizedBox(height: 10),
               if (localNights.isEmpty)
-                const _SoftEmpty(text: '还没有本地记录。播放一段声音，或在醒来后选一下感受，这里才会慢慢出现内容。')
+                _SoftEmpty(text: l10n.historyEmpty)
               else
                 for (final night in localNights.take(14)) ...[
                   _LocalNightCard(
                     night: night,
+                    catalog: widget.catalog,
                     onDelete: () => _deleteLocalDay(night.dayKey),
                   ),
                   const SizedBox(height: 12),
@@ -314,12 +338,13 @@ class _HealthConnectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final status = switch (availability) {
       SleepHealthAvailability.available when lastSyncAt != null =>
-        '上次更新：${_formatDateTime(lastSyncAt!)}',
-      SleepHealthAvailability.available => '由你决定是否连接，不会在首次启动时询问。',
-      SleepHealthAvailability.installRequired => '需要先安装或更新 Health Connect。',
-      SleepHealthAvailability.unavailable => '这台设备暂时不支持系统睡眠数据。',
+        l10n.healthLastUpdated(_formatDateTime(context, lastSyncAt!)),
+      SleepHealthAvailability.available => l10n.healthOptional,
+      SleepHealthAvailability.installRequired => l10n.healthInstallRequired,
+      SleepHealthAvailability.unavailable => l10n.healthUnavailable,
     };
     return Container(
       padding: const EdgeInsets.all(20),
@@ -333,7 +358,10 @@ class _HealthConnectionCard extends StatelessWidget {
         children: [
           const Icon(Icons.watch_outlined, color: StillowColors.sage),
           const SizedBox(height: 10),
-          Text('手表与系统睡眠记录', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            l10n.healthCardTitle,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 6),
           Text(status, style: Theme.of(context).textTheme.bodyMedium),
           if (message != null) ...[
@@ -350,17 +378,19 @@ class _HealthConnectionCard extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.sync_rounded),
-              label: Text(lastSyncAt == null ? '连接并同步' : '更新最近记录'),
+              label: Text(
+                lastSyncAt == null ? l10n.healthConnectSync : l10n.healthUpdate,
+              ),
             )
           else if (availability == SleepHealthAvailability.installRequired)
             FilledButton.tonal(
               onPressed: onInstall,
-              child: const Text('安装或更新 Health Connect'),
+              child: Text(l10n.healthInstall),
             ),
           if (lastSyncAt != null || hasCachedData)
             TextButton(
               onPressed: syncing ? null : onDisconnect,
-              child: const Text('断开并清除健康缓存'),
+              child: Text(l10n.healthDisconnectCache),
             ),
         ],
       ),
@@ -375,6 +405,7 @@ class _SleepTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final values = summaries.take(7).toList().reversed.toList();
     return Container(
       padding: const EdgeInsets.all(20),
@@ -386,10 +417,13 @@ class _SleepTrendCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('睡眠记录时段走势', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            l10n.healthTrendTitle,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 5),
           Text(
-            '连接线表示设备记录的起止跨度，不是睡眠质量分数。',
+            l10n.healthTrendBody,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 18),
@@ -474,10 +508,14 @@ class _HealthNightList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('设备记录', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          l10n.healthDeviceRecords,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 10),
         for (final summary in summaries) ...[
           Container(
@@ -496,18 +534,19 @@ class _HealthNightList extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _formatDay(summary.day),
+                        _formatDay(context, summary.day),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '${_formatClock(summary.startedAt)}–${_formatClock(summary.endedAt)} · '
-                        '${_formatDuration(summary.recordedWindow)}',
+                        '${_formatClock(context, summary.startedAt)}–'
+                        '${_formatClock(context, summary.endedAt)} · '
+                        '${_formatDuration(context, summary.recordedWindow)}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       if (summary.stages.any(_isSpecificSleepStage))
                         Text(
-                          '设备同时提供了睡眠阶段',
+                          l10n.healthStagesAvailable,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       if (summary.segments.any(_isVisibleSleepSegment)) ...[
@@ -534,13 +573,14 @@ class _SleepStageTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final totalMilliseconds = summary.recordedWindow.inMilliseconds;
     final segments = summary.segments.where(_isVisibleSleepSegment).toList();
     if (totalMilliseconds <= 0 || segments.isEmpty) {
       return const SizedBox.shrink();
     }
     return Semantics(
-      label: '设备提供的睡眠阶段时间条，仅供回顾，不是睡眠评分',
+      label: l10n.healthTimelineSemantics,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -580,7 +620,7 @@ class _SleepStageTimeline extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '浅睡 · 深睡 · REM · 清醒（按设备记录展示）',
+            l10n.healthTimelineLegend,
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -590,13 +630,19 @@ class _SleepStageTimeline extends StatelessWidget {
 }
 
 class _LocalNightCard extends StatelessWidget {
-  const _LocalNightCard({required this.night, required this.onDelete});
+  const _LocalNightCard({
+    required this.night,
+    required this.onDelete,
+    this.catalog,
+  });
 
   final _LocalNight night;
   final VoidCallback onDelete;
+  final ContentCatalog? catalog;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 10, 16),
       decoration: BoxDecoration(
@@ -612,25 +658,35 @@ class _LocalNightCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _formatDay(night.day),
+                  _formatDay(context, night.day),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 if (night.checkIn != null) ...[
                   const SizedBox(height: 5),
                   Text(
-                    '醒来时：${_feelingLabel(night.checkIn!.feeling)}',
+                    l10n.historyMorningFeeling(
+                      _feelingLabel(context, night.checkIn!.feeling),
+                    ),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
                 for (final session in night.sessions) ...[
                   const SizedBox(height: 9),
                   Text(
-                    session.sessionTitle,
+                    catalog?.findById(session.sessionId)?.title ??
+                        session.sessionTitle,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    '${session.context == SleepUseContext.nightAwake ? '夜醒陪伴' : '睡前陪伴'} · '
-                    '${_formatDuration(Duration(seconds: session.listenedSeconds))}',
+                    l10n.historySessionLine(
+                      session.context == SleepUseContext.nightAwake
+                          ? l10n.historyNightSession
+                          : l10n.historyBedtimeSession,
+                      _formatDuration(
+                        context,
+                        Duration(seconds: session.listenedSeconds),
+                      ),
+                    ),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -638,7 +694,7 @@ class _LocalNightCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: '移除这晚的本地记录',
+            tooltip: l10n.historyRemoveNightTooltip,
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline_rounded),
             color: StillowColors.linenMuted,
@@ -730,28 +786,31 @@ Color _stageColor(HealthSleepStage stage) => switch (stage) {
   _ => StillowColors.backgroundSoft,
 };
 
-String _feelingLabel(MorningFeeling feeling) => switch (feeling) {
-  MorningFeeling.rested => '挺有精神',
-  MorningFeeling.ordinary => '还算普通',
-  MorningFeeling.tired => '还是有点累',
-};
+String _feelingLabel(BuildContext context, MorningFeeling feeling) =>
+    switch (feeling) {
+      MorningFeeling.rested => context.l10n.feelingRested,
+      MorningFeeling.ordinary => context.l10n.feelingOrdinary,
+      MorningFeeling.tired => context.l10n.feelingTired,
+    };
 
-String _formatDay(DateTime value) => '${value.month} 月 ${value.day} 日';
+String _formatDay(BuildContext context, DateTime value) =>
+    MaterialLocalizations.of(context).formatMediumDate(value.toLocal());
 
-String _formatDateTime(DateTime value) =>
-    '${_formatDay(value.toLocal())} ${_formatClock(value)}';
+String _formatDateTime(BuildContext context, DateTime value) =>
+    '${_formatDay(context, value)} ${_formatClock(context, value)}';
 
-String _formatClock(DateTime value) {
+String _formatClock(BuildContext context, DateTime value) {
   final local = value.toLocal();
-  return '${local.hour.toString().padLeft(2, '0')}:'
-      '${local.minute.toString().padLeft(2, '0')}';
+  return MaterialLocalizations.of(
+    context,
+  ).formatTimeOfDay(TimeOfDay.fromDateTime(local));
 }
 
-String _formatDuration(Duration value) {
+String _formatDuration(BuildContext context, Duration value) {
   final minutes = math.max(1, value.inMinutes);
   final hours = minutes ~/ 60;
   final rest = minutes % 60;
-  if (hours == 0) return '$rest 分钟';
-  if (rest == 0) return '$hours 小时';
-  return '$hours 小时 $rest 分钟';
+  if (hours == 0) return context.l10n.durationMinutes(rest);
+  if (rest == 0) return context.l10n.durationHours(hours);
+  return context.l10n.durationHoursMinutes(hours, rest);
 }

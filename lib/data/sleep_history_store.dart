@@ -35,8 +35,14 @@ class LocalSleepHistoryStore implements SleepHistoryStore {
   Future<void> _pendingMutation = Future.value();
 
   @override
-  Future<SleepHistorySnapshot> load() async =>
-      SleepHistorySnapshot.fromJson(await _file.read()).pruned(_clock());
+  Future<SleepHistorySnapshot> load() {
+    late SleepHistorySnapshot result;
+    final operation = _pendingMutation.then((_) async {
+      result = await _readAndPersistPruned();
+    });
+    _pendingMutation = operation.catchError((_) {});
+    return operation.then((_) => result);
+  }
 
   @override
   Future<void> saveAppSession(AppSleepSessionRecord record) => _mutate((value) {
@@ -95,10 +101,27 @@ class LocalSleepHistoryStore implements SleepHistoryStore {
     SleepHistorySnapshot Function(SleepHistorySnapshot value) update,
   ) {
     final operation = _pendingMutation.then((_) async {
-      final next = update(await load()).pruned(_clock());
+      final next = update(await _readAndPersistPruned()).pruned(_clock());
       await _file.write(next.toJson());
     });
     _pendingMutation = operation.catchError((_) {});
     return operation;
   }
+
+  Future<SleepHistorySnapshot> _readAndPersistPruned() async {
+    final raw = SleepHistorySnapshot.fromJson(await _file.read());
+    final pruned = raw.pruned(_clock());
+    if (_retentionChanged(raw, pruned)) {
+      await _file.write(pruned.toJson());
+    }
+    return pruned;
+  }
+
+  static bool _retentionChanged(
+    SleepHistorySnapshot raw,
+    SleepHistorySnapshot pruned,
+  ) =>
+      raw.appSessions.length != pruned.appSessions.length ||
+      raw.morningCheckIns.length != pruned.morningCheckIns.length ||
+      raw.healthSamples.length != pruned.healthSamples.length;
 }

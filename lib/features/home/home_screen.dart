@@ -5,6 +5,7 @@ import '../../data/content_catalog.dart';
 import '../../data/sleep_history_store.dart';
 import '../../domain/sleep_history.dart';
 import '../../domain/stillow_models.dart';
+import '../../l10n/l10n.dart';
 import '../../services/offline_audio_store.dart';
 import '../../services/sleep_health_gateway.dart';
 import '../../theme/stillow_theme.dart';
@@ -18,6 +19,7 @@ import '../privacy/data_privacy_screen.dart';
 import '../session/session_library_screen.dart';
 import '../session/tonight_state_screen.dart';
 import '../support/sleep_support_review_screen.dart';
+import '../user_sound/user_sound_library_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -26,11 +28,20 @@ class HomeScreen extends StatelessWidget {
     required this.catalog,
     required this.region,
     required this.offlineAudioStore,
-    required this.onSessionStarted,
+    required this.userSounds,
+    required this.onPlaybackStarted,
     required this.onFeedback,
     required this.onFavoriteChanged,
     required this.onRegionPreferenceChanged,
+    required this.onAppLanguagePreferenceChanged,
+    required this.onAudioLanguagePreferenceChanged,
     required this.onNightPresetChanged,
+    required this.onUserSoundImport,
+    required this.onUserSoundImportCancelled,
+    required this.onUserSoundUsageRequested,
+    required this.onUserSoundChanged,
+    required this.onUserSoundDeleted,
+    required this.onUserSoundsReordered,
     required this.onProfileChanged,
     required this.onSessionFinished,
     required this.onMorningFeeling,
@@ -42,37 +53,98 @@ class HomeScreen extends StatelessWidget {
   final ContentCatalog catalog;
   final ContentRegion region;
   final OfflineAudioStore offlineAudioStore;
-  final Future<void> Function(GuidedSession session, SleepUseContext context)
-  onSessionStarted;
+  final List<UserSound> userSounds;
+  final Future<void> Function(PlaybackItem item, SleepUseContext context)
+  onPlaybackStarted;
   final Future<void> Function(SessionFeedback feedback) onFeedback;
   final Future<void> Function(String sessionId) onFavoriteChanged;
   final Future<void> Function(RegionPreference preference)
   onRegionPreferenceChanged;
+  final Future<void> Function(AppLanguagePreference preference)
+  onAppLanguagePreferenceChanged;
+  final Future<void> Function(AudioLanguagePreference preference)
+  onAudioLanguagePreferenceChanged;
   final Future<void> Function(GuidedSession session) onNightPresetChanged;
+  final Future<List<UserSound>> Function(
+    void Function(double progress) onProgress,
+  )
+  onUserSoundImport;
+  final VoidCallback onUserSoundImportCancelled;
+  final Future<int> Function() onUserSoundUsageRequested;
+  final Future<UserSound> Function(UserSound sound) onUserSoundChanged;
+  final Future<void> Function(String id) onUserSoundDeleted;
+  final Future<void> Function(List<UserSound> sounds) onUserSoundsReordered;
   final Future<void> Function(UserProfile profile) onProfileChanged;
   final Future<void> Function(AppSleepSessionRecord record) onSessionFinished;
   final Future<void> Function(MorningFeeling feeling) onMorningFeeling;
   final SleepHistoryStore sleepHistoryStore;
   final SleepHealthGateway sleepHealthGateway;
 
-  Future<void> _openPlayer(BuildContext context, GuidedSession session) async {
+  PlaybackItem _userItem(BuildContext context, UserSound sound) {
+    final l10n = context.l10n;
+    return PlaybackItem.fromUserSound(
+      sound,
+      subtitle: l10n.userSoundLocalSubtitle,
+      shortLabel: l10n.userSoundLocalShortLabel,
+      creatorLabel: l10n.userSoundLocalCreator,
+    );
+  }
+
+  Future<void> _openCatalogPlayer(
+    BuildContext context,
+    GuidedSession session,
+  ) async {
     final playableSession = await offlineAudioStore.resolve(session);
+    final fallback = catalog.offlineFallbackFor(session, region);
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
-          session: playableSession,
-          fallbackSession: catalog.offlineFallbackFor(session, region),
-          onSessionStarted: onSessionStarted,
+          item: PlaybackItem.fromGuidedSession(playableSession),
+          fallbackItem: fallback == null
+              ? null
+              : PlaybackItem.fromGuidedSession(fallback),
+          onPlaybackStarted: onPlaybackStarted,
           onSessionFinished: onSessionFinished,
         ),
       ),
     );
   }
 
+  Future<void> _openUserPlayer(BuildContext context, UserSound sound) {
+    final items = [for (final entry in userSounds) _userItem(context, entry)];
+    final index = items.indexWhere((item) => item.userSound?.id == sound.id);
+    final start = index < 0 ? _userItem(context, sound) : items[index];
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlayerScreen(
+          item: start,
+          playlist: items,
+          onPlaybackStarted: onPlaybackStarted,
+          onSessionFinished: onSessionFinished,
+          onRemoveFromPlaylist: _removeFromPlaylist,
+          defaultSleepTimer: sound.defaultTimerMinutes == null
+              ? null
+              : Duration(minutes: sound.defaultTimerMinutes!),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeFromPlaylist(PlaybackItem item) async {
+    final id = item.userSound?.id;
+    if (id == null) return;
+    await onUserSoundDeleted(id);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final recommendation = catalog.recommend(profile, region);
+    final listStart = userSounds.isEmpty ? null : userSounds.first;
+    final recommendationItem = listStart == null
+        ? PlaybackItem.fromGuidedSession(recommendation)
+        : _userItem(context, listStart);
     final candidateSessions = catalog.candidateSessionsFor(region);
     final studySessions = catalog.studyDrowsyFor(region);
 
@@ -92,7 +164,7 @@ class HomeScreen extends StatelessWidget {
                       const Spacer(),
                       IconButton(
                         onPressed: () => _showAbout(context),
-                        tooltip: '设置与关于 Stillow',
+                        tooltip: l10n.homeSettingsTooltip,
                         icon: const Icon(Icons.more_horiz_rounded),
                         color: StillowColors.linenMuted,
                       ),
@@ -100,20 +172,22 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 44),
                   Text(
-                    '今晚，\n慢一点。',
+                    l10n.homeGreeting,
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    '选一段此刻喜欢的声音。',
+                    l10n.homePrompt,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: StillowColors.linenMuted,
                     ),
                   ),
                   const SizedBox(height: 34),
                   _RecommendationCard(
-                    session: recommendation,
-                    onTap: () => _openPlayer(context, recommendation),
+                    item: recommendationItem,
+                    onTap: () => listStart == null
+                        ? _openCatalogPlayer(context, recommendation)
+                        : _openUserPlayer(context, listStart),
                   ),
                   const SizedBox(height: 14),
                   FilledButton.tonalIcon(
@@ -129,11 +203,11 @@ class HomeScreen extends StatelessWidget {
                             ),
                           );
                       if (session != null && context.mounted) {
-                        await _openPlayer(context, session);
+                        await _openCatalogPlayer(context, session);
                       }
                     },
                     icon: const Icon(Icons.tune_rounded),
-                    label: const Text('今晚感觉有点不同'),
+                    label: Text(l10n.homeDifferentTonight),
                     style: FilledButton.styleFrom(
                       backgroundColor: StillowColors.surfaceRaised,
                       foregroundColor: StillowColors.linen,
@@ -154,12 +228,39 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 36),
-                  Text('想换一种方式', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    l10n.homeOtherWays,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 14),
                   _QuietAction(
+                    icon: Icons.audio_file_rounded,
+                    title: l10n.userSoundsHomeTitle,
+                    subtitle: l10n.userSoundsHomeSubtitle,
+                    onTap: () async {
+                      final sound = await Navigator.of(context).push<UserSound>(
+                        MaterialPageRoute<UserSound>(
+                          builder: (_) => UserSoundLibraryScreen(
+                            initialSounds: userSounds,
+                            onImport: onUserSoundImport,
+                            onCancelImport: onUserSoundImportCancelled,
+                            onUsageRequested: onUserSoundUsageRequested,
+                            onUpdate: onUserSoundChanged,
+                            onDelete: onUserSoundDeleted,
+                            onReorder: onUserSoundsReordered,
+                          ),
+                        ),
+                      );
+                      if (sound != null && context.mounted) {
+                        await _openUserPlayer(context, sound);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _QuietAction(
                     icon: Icons.grid_view_rounded,
-                    title: '看看其他陪伴',
-                    subtitle: '搜索、分类、收藏，或把在线声音留到设备里',
+                    title: l10n.homeBrowseTitle,
+                    subtitle: l10n.homeBrowseSubtitle,
                     onTap: () async {
                       final session = await Navigator.of(context)
                           .push<GuidedSession>(
@@ -173,7 +274,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           );
                       if (session != null && context.mounted) {
-                        await _openPlayer(context, session);
+                        await _openCatalogPlayer(context, session);
                       }
                     },
                   ),
@@ -181,9 +282,10 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _QuietAction(
                       icon: Icons.science_outlined,
-                      title: '试听候选声音',
-                      subtitle:
-                          '${candidateSessions.length} 段公开候选，需要联网，听感仍在筛选中',
+                      title: l10n.homeCandidatesTitle,
+                      subtitle: l10n.homeCandidatesSubtitle(
+                        candidateSessions.length,
+                      ),
                       onTap: () async {
                         final session = await Navigator.of(context)
                             .push<GuidedSession>(
@@ -194,13 +296,13 @@ class HomeScreen extends StatelessWidget {
                                       profile.favoriteSessionIds,
                                   onFavoriteChanged: onFavoriteChanged,
                                   offlineAudioStore: offlineAudioStore,
-                                  title: '候选声音\n试听列表',
-                                  subtitle: '可以搜索、收藏，或下载到设备后慢慢听。',
+                                  title: l10n.candidateLibraryTitle,
+                                  subtitle: l10n.candidateLibrarySubtitle,
                                 ),
                               ),
                             );
                         if (session != null && context.mounted) {
-                          await _openPlayer(context, session);
+                          await _openCatalogPlayer(context, session);
                         }
                       },
                     ),
@@ -208,8 +310,8 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _QuietAction(
                     icon: Icons.record_voice_over_outlined,
-                    title: '听一段舒缓人声',
-                    subtitle: '长篇中文女声、短篇散文与轻声科普',
+                    title: l10n.homeVoiceTitle,
+                    subtitle: l10n.homeVoiceSubtitle,
                     onTap: () async {
                       final session = await Navigator.of(context)
                           .push<GuidedSession>(
@@ -219,13 +321,13 @@ class HomeScreen extends StatelessWidget {
                                 favoriteSessionIds: profile.favoriteSessionIds,
                                 onFavoriteChanged: onFavoriteChanged,
                                 offlineAudioStore: offlineAudioStore,
-                                title: '舒缓人声',
-                                subtitle: '选择更喜欢的音色和篇幅。',
+                                title: l10n.voiceLibraryTitle,
+                                subtitle: l10n.voiceLibrarySubtitle,
                               ),
                             ),
                           );
                       if (session != null && context.mounted) {
-                        await _openPlayer(context, session);
+                        await _openCatalogPlayer(context, session);
                       }
                     },
                   ),
@@ -233,8 +335,8 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _QuietAction(
                       icon: Icons.menu_book_outlined,
-                      title: '听一段平缓的知识',
-                      subtitle: '课程、百科与技术朗读，按声音和篇幅挑一段',
+                      title: l10n.homeKnowledgeTitle,
+                      subtitle: l10n.homeKnowledgeSubtitle,
                       onTap: () async {
                         final session = await Navigator.of(context)
                             .push<GuidedSession>(
@@ -245,13 +347,13 @@ class HomeScreen extends StatelessWidget {
                                       profile.favoriteSessionIds,
                                   onFavoriteChanged: onFavoriteChanged,
                                   offlineAudioStore: offlineAudioStore,
-                                  title: '知识陪伴',
-                                  subtitle: '选择更喜欢的声音、主题和篇幅。',
+                                  title: l10n.knowledgeLibraryTitle,
+                                  subtitle: l10n.knowledgeLibrarySubtitle,
                                 ),
                               ),
                             );
                         if (session != null && context.mounted) {
-                          await _openPlayer(context, session);
+                          await _openCatalogPlayer(context, session);
                         }
                       },
                     ),
@@ -259,8 +361,8 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _QuietAction(
                     icon: Icons.nights_stay_outlined,
-                    title: '夜里醒来时',
-                    subtitle: '不看时间，一键开始预设陪伴',
+                    title: l10n.homeNightAwakeTitle,
+                    subtitle: l10n.homeNightAwakeSubtitle,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => NightRescueScreen(
@@ -268,10 +370,9 @@ class HomeScreen extends StatelessWidget {
                           catalog: catalog,
                           region: region,
                           offlineAudioStore: offlineAudioStore,
-                          favoriteSessionIds: profile.favoriteSessionIds,
-                          onFavoriteChanged: onFavoriteChanged,
+                          userSounds: userSounds,
                           onNightPresetChanged: onNightPresetChanged,
-                          onSessionStarted: onSessionStarted,
+                          onPlaybackStarted: onPlaybackStarted,
                           onSessionFinished: onSessionFinished,
                         ),
                       ),
@@ -280,8 +381,8 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _QuietAction(
                     icon: Icons.wb_twilight_outlined,
-                    title: '醒来以后',
-                    subtitle: '看看此刻的恢复感，或者轻松聊聊昨晚的梦',
+                    title: l10n.homeMorningTitle,
+                    subtitle: l10n.homeMorningSubtitle,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => MorningReviewScreen(
@@ -293,13 +394,14 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _QuietAction(
                     icon: Icons.insights_outlined,
-                    title: '最近的夜晚',
-                    subtitle: '回顾本地记录，或主动连接手表与系统睡眠数据',
+                    title: l10n.homeHistoryTitle,
+                    subtitle: l10n.homeHistorySubtitle,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => SleepHistoryScreen(
                           historyStore: sleepHistoryStore,
                           healthGateway: sleepHealthGateway,
+                          catalog: catalog,
                         ),
                       ),
                     ),
@@ -307,7 +409,7 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 44),
                   Center(
                     child: Text(
-                      '想用时再来。',
+                      l10n.homeFooter,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -321,6 +423,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _showAbout(BuildContext context) {
+    final l10n = context.l10n;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: StillowColors.surface,
@@ -335,19 +438,92 @@ class HomeScreen extends StatelessWidget {
               children: [
                 const StillowWordmark(),
                 const SizedBox(height: 20),
-                Text('陪你慢慢安静。', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  l10n.aboutTagline,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 12),
                 Text(
-                  'Stillow 当前是体验原型，不用于诊断或治疗睡眠疾病。'
-                  '如果经常憋醒、呼吸暂停，或白天困倦已经影响驾驶安全，'
-                  '更适合先找专业人士确认。',
+                  l10n.aboutPrototypeNotice,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 22),
-                Text('素材区域', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  l10n.interfaceLanguageTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 6),
                 Text(
-                  '自动模式会跟随设备地区；也可以手动切换，随时改回来。',
+                  l10n.interfaceLanguageDescription,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preference in AppLanguagePreference.values)
+                      ChoiceChip(
+                        selected: profile.appLanguagePreference == preference,
+                        label: Text(switch (preference) {
+                          AppLanguagePreference.system => l10n.languageSystem,
+                          AppLanguagePreference.simplifiedChinese =>
+                            l10n.languageChinese,
+                          AppLanguagePreference.english => l10n.languageEnglish,
+                        }),
+                        onSelected: (_) async {
+                          await onAppLanguagePreferenceChanged(preference);
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  l10n.audioLanguageTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.audioLanguageDescription,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preference in AudioLanguagePreference.values)
+                      ChoiceChip(
+                        selected: profile.audioLanguagePreference == preference,
+                        label: Text(switch (preference) {
+                          AudioLanguagePreference.automatic =>
+                            l10n.audioLanguageAutomatic,
+                          AudioLanguagePreference.chinese =>
+                            l10n.audioLanguageChinese,
+                          AudioLanguagePreference.english =>
+                            l10n.audioLanguageEnglish,
+                          AudioLanguagePreference.any => l10n.audioLanguageAny,
+                        }),
+                        onSelected: (_) async {
+                          await onAudioLanguagePreferenceChanged(preference);
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  l10n.contentRegionTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.contentRegionDescription,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 12),
@@ -361,14 +537,18 @@ class HomeScreen extends StatelessWidget {
                         label: Text(switch (preference) {
                           RegionPreference.automatic =>
                             region == ContentRegion.mainlandChina
-                                ? '自动 · 国内'
-                                : '自动 · 国际',
-                          RegionPreference.mainlandChina => '国内素材',
-                          RegionPreference.international => '国际素材',
+                                ? l10n.contentRegionAutomaticChina
+                                : l10n.contentRegionAutomaticInternational,
+                          RegionPreference.mainlandChina =>
+                            l10n.contentRegionChina,
+                          RegionPreference.international =>
+                            l10n.contentRegionInternational,
                         }),
                         onSelected: (_) async {
                           await onRegionPreferenceChanged(preference);
-                          if (context.mounted) Navigator.of(context).pop();
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
                         },
                       ),
                   ],
@@ -381,6 +561,7 @@ class HomeScreen extends StatelessWidget {
                       MaterialPageRoute<void>(
                         builder: (editContext) => OnboardingScreen(
                           initialProfile: profile,
+                          hasGuidedRelaxation: catalog.hasGuidedRelaxation,
                           onComplete: (updated) async {
                             await onProfileChanged(updated);
                             if (editContext.mounted) {
@@ -392,7 +573,7 @@ class HomeScreen extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.tune_rounded),
-                  label: const Text('调整陪伴偏好'),
+                  label: Text(l10n.adjustPreferences),
                 ),
                 TextButton.icon(
                   onPressed: () {
@@ -405,7 +586,7 @@ class HomeScreen extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.privacy_tip_outlined),
-                  label: const Text('数据与隐私'),
+                  label: Text(l10n.dataAndPrivacy),
                 ),
                 TextButton.icon(
                   onPressed: () => _openExternal(
@@ -415,7 +596,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.system_update_alt_rounded),
-                  label: const Text('查看最新版本'),
+                  label: Text(l10n.viewLatestVersion),
                 ),
                 TextButton.icon(
                   onPressed: () => _openExternal(
@@ -423,7 +604,7 @@ class HomeScreen extends StatelessWidget {
                     Uri.parse('https://github.com/newtv-ai/stillow/releases'),
                   ),
                   icon: const Icon(Icons.notes_rounded),
-                  label: const Text('版本与更新说明'),
+                  label: Text(l10n.releaseNotes),
                 ),
               ],
             ),
@@ -438,19 +619,20 @@ class HomeScreen extends StatelessWidget {
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('暂时没能打开 GitHub，可以稍后再试。')));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.githubOpenFailed)));
     }
   }
 }
 
 class _RecommendationCard extends StatelessWidget {
-  const _RecommendationCard({required this.session, required this.onTap});
+  const _RecommendationCard({required this.item, required this.onTap});
 
-  final GuidedSession session;
+  final PlaybackItem item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(32),
@@ -480,7 +662,7 @@ class _RecommendationCard extends StatelessWidget {
                       color: StillowColors.background.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: Icon(session.icon, color: StillowColors.moon),
+                    child: Icon(item.icon, color: StillowColors.moon),
                   ),
                   const Spacer(),
                   const Icon(
@@ -491,15 +673,18 @@ class _RecommendationCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 38),
-              Text('今晚先试试', style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                l10n.recommendationTryTonight,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 5),
               Text(
-                session.title,
+                item.title,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                session.subtitle,
+                item.subtitle,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -570,6 +755,7 @@ class _GentleSupportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -581,14 +767,16 @@ class _GentleSupportCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            showProfessional ? '声音可能不是全部答案' : '换条完全不同的路试试',
+            showProfessional
+                ? l10n.supportProfessionalTitle
+                : l10n.supportDifferentPathTitle,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 6),
           Text(
             showProfessional
-                ? '如果已经多次尝试仍没帮助，可以选择了解什么时候值得找专业人士聊聊。'
-                : '最近试过的声音帮助有限，可以在人声、音乐和自然声之间换一种感受。',
+                ? l10n.supportProfessionalBody
+                : l10n.supportDifferentPathBody,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           if (showProfessional) ...[
@@ -599,7 +787,7 @@ class _GentleSupportCard extends StatelessWidget {
                   builder: (_) => const SleepSupportReviewScreen(),
                 ),
               ),
-              child: const Text('我想了解一下'),
+              child: Text(l10n.supportLearnMore),
             ),
           ],
         ],
@@ -628,9 +816,9 @@ class _FeedbackCardState extends State<_FeedbackCard> {
       await widget.onFeedback(feedback);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('这次反馈没能保存，可以再试一次。')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.feedbackSaveFailed)),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -639,6 +827,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -649,10 +838,15 @@ class _FeedbackCardState extends State<_FeedbackCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('有空的时候，告诉我们', style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            l10n.feedbackIntro,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const SizedBox(height: 4),
           Text(
-            widget.nightAwake ? '夜醒后的那段陪伴呢？' : '上次那段陪伴感觉怎么样？',
+            widget.nightAwake
+                ? l10n.feedbackNightQuestion
+                : l10n.feedbackBedtimeQuestion,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
@@ -661,19 +855,23 @@ class _FeedbackCardState extends State<_FeedbackCard> {
             runSpacing: 8,
             children: [
               _FeedbackChip(
-                label: widget.nightAwake ? '比较容易安静下来' : '挺舒服的',
+                label: widget.nightAwake
+                    ? l10n.feedbackNightComfortable
+                    : l10n.feedbackComfortable,
                 onTap: _saving
                     ? null
                     : () => _choose(SessionFeedback.comfortable),
               ),
               _FeedbackChip(
-                label: '没有明显区别',
+                label: l10n.feedbackNoDifference,
                 onTap: _saving
                     ? null
                     : () => _choose(SessionFeedback.noDifference),
               ),
               _FeedbackChip(
-                label: widget.nightAwake ? '反而更清醒' : '不太适合',
+                label: widget.nightAwake
+                    ? l10n.feedbackNightNotForMe
+                    : l10n.feedbackNotForMe,
                 onTap: _saving ? null : () => _choose(SessionFeedback.notForMe),
               ),
             ],

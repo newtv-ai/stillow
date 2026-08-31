@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/content_catalog.dart';
 import '../../domain/stillow_models.dart';
+import '../../l10n/l10n.dart';
 import '../../widgets/soft_ui.dart';
 
 class TonightStateScreen extends StatelessWidget {
@@ -22,6 +23,7 @@ class TonightStateScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: StillowBackdrop(
         child: Column(
@@ -29,17 +31,17 @@ class TonightStateScreen extends StatelessWidget {
           children: [
             QuietIconButton(
               icon: Icons.close_rounded,
-              tooltip: '关闭',
+              tooltip: l10n.close,
               onPressed: () => Navigator.of(context).pop(),
             ),
             const SizedBox(height: 20),
             Text(
-              '今晚更像是\n哪一种？',
+              l10n.tonightStateTitle,
               style: Theme.of(context).textTheme.displaySmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '凭第一感觉，选最接近的一项。',
+              l10n.tonightStateSubtitle,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 18),
@@ -48,49 +50,49 @@ class TonightStateScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     SoftChoiceCard(
-                      title: '想法有点多',
+                      title: l10n.stateBusyMind,
                       icon: Icons.cloud_outlined,
                       dense: true,
                       onTap: () => _select(context, NightState.busyMind),
                     ),
                     const SizedBox(height: 8),
                     SoftChoiceCard(
-                      title: '没想什么，只是还不困',
+                      title: l10n.stateNotSleepy,
                       icon: Icons.visibility_outlined,
                       dense: true,
                       onTap: () => _select(context, NightState.notSleepy),
                     ),
                     const SizedBox(height: 8),
                     SoftChoiceCard(
-                      title: '有点着急，越想睡越清醒',
+                      title: l10n.stateSleepPressure,
                       icon: Icons.hourglass_empty_rounded,
                       dense: true,
                       onTap: () => _select(context, NightState.sleepPressure),
                     ),
                     const SizedBox(height: 8),
                     SoftChoiceCard(
-                      title: '身体还没松下来',
+                      title: l10n.stateTenseBody,
                       icon: Icons.spa_outlined,
                       dense: true,
                       onTap: () => _select(context, NightState.tenseBody),
                     ),
                     const SizedBox(height: 8),
                     SoftChoiceCard(
-                      title: '周围有点吵',
+                      title: l10n.stateNoisyRoom,
                       icon: Icons.water_drop_outlined,
                       dense: true,
                       onTap: () => _select(context, NightState.noisyRoom),
                     ),
                     const SizedBox(height: 8),
                     SoftChoiceCard(
-                      title: '是夜里醒来后',
+                      title: l10n.stateNightAwake,
                       icon: Icons.nights_stay_outlined,
                       dense: true,
                       onTap: () => _select(context, NightState.nightAwake),
                     ),
                     const SizedBox(height: 8),
                     SoftChoiceCard(
-                      title: '说不上来',
+                      title: l10n.stateUnsure,
                       icon: Icons.more_horiz_rounded,
                       dense: true,
                       onTap: () => _select(context, NightState.unsure),
@@ -101,7 +103,7 @@ class TonightStateScreen extends StatelessWidget {
             ),
             TextButton(
               onPressed: () => _select(context, null),
-              child: const Text('跳过，继续熟悉的方式'),
+              child: Text(l10n.tonightStateSkip),
             ),
           ],
         ),

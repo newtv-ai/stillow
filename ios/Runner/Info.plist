@@ -26,8 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Stillow 仅在你主动连接时读取最近 30 天的睡眠时段与阶段，用于在本机展示睡眠记录走势。</string>
+	<string>Stillow reads sleep periods and stages from the past 30 days only when you choose to connect, so it can show a local sleep-history trend on this device.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/sleep_history_store.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 
@@ -17,6 +18,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   bool _clearing = false;
 
   Future<void> _clearHistory() async {
+    final l10n = context.l10n;
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: StillowColors.surface,
@@ -28,10 +30,13 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('清除全部睡眠记录？', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                l10n.privacyClearTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 10),
               Text(
-                '会从这台设备中移除声音陪伴、晨间感受和已同步的健康记录。收藏与个性化偏好不会受影响。',
+                l10n.privacyClearBody,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 18),
@@ -39,12 +44,12 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('先留着'),
+                    child: Text(l10n.keepForNow),
                   ),
                   const Spacer(),
                   FilledButton.tonal(
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('全部清除'),
+                    child: Text(l10n.clearAll),
                   ),
                 ],
               ),
@@ -60,11 +65,12 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
     setState(() => _clearing = false);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('这台设备中的睡眠记录已经清除。')));
+    ).showSnackBar(SnackBar(content: Text(l10n.historyCleared)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: StillowBackdrop(
         padding: EdgeInsets.zero,
@@ -75,41 +81,49 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
               alignment: Alignment.centerLeft,
               child: QuietIconButton(
                 icon: Icons.arrow_back_rounded,
-                tooltip: '返回',
+                tooltip: l10n.back,
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
             ),
             const SizedBox(height: 28),
-            Text('数据与隐私', style: Theme.of(context).textTheme.displaySmall),
+            Text(
+              l10n.privacyTitle,
+              style: Theme.of(context).textTheme.displaySmall,
+            ),
             const SizedBox(height: 12),
             Text(
-              'Stillow 没有账号、网站、服务端或云端同步。以下内容只留在这台设备中，也不会进入系统云备份。',
+              l10n.privacyIntro,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 26),
-            const _PrivacyItem(
+            _PrivacyItem(
               icon: Icons.bedtime_outlined,
-              title: '极简本地记录',
-              body: '最多保存 30 天的声音陪伴、播放时长、睡前或夜醒场景，以及你主动选择的晨间感受。卸载或换机后不会恢复。',
+              title: l10n.privacyLocalTitle,
+              body: l10n.privacyLocalBody,
             ),
             const SizedBox(height: 12),
-            const _PrivacyItem(
+            _PrivacyItem(
+              icon: Icons.audio_file_outlined,
+              title: l10n.privacyUserSoundsTitle,
+              body: l10n.privacyUserSoundsBody,
+            ),
+            const SizedBox(height: 12),
+            _PrivacyItem(
               icon: Icons.watch_outlined,
-              title: '健康数据需要你主动连接',
-              body:
-                  '只保存睡眠时段和阶段；不保留健康记录 UUID、来源设备名、心率或 HRV，不写入健康平台，不后台同步。断开后会清除 App 中的健康缓存。',
+              title: l10n.privacyHealthTitle,
+              body: l10n.privacyHealthBody,
             ),
             const SizedBox(height: 12),
-            const _PrivacyItem(
+            _PrivacyItem(
               icon: Icons.auto_awesome_outlined,
-              title: '梦境文字不保存',
-              body: '梦境解析只在当前页面完成。退出解析页后，输入的梦境文字不会写入本地记录。',
+              title: l10n.privacyDreamTitle,
+              body: l10n.privacyDreamBody,
             ),
             const SizedBox(height: 12),
-            const _PrivacyItem(
+            _PrivacyItem(
               icon: Icons.insights_outlined,
-              title: '趋势不是诊断',
-              body: '设备记录和晨间感受只用于轻松回顾，不生成医学睡眠评分，也不用于诊断或治疗。',
+              title: l10n.privacyTrendTitle,
+              body: l10n.privacyTrendBody,
             ),
             const SizedBox(height: 28),
             OutlinedButton.icon(
@@ -120,7 +134,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.delete_outline_rounded),
-              label: const Text('清除全部睡眠记录'),
+              label: Text(l10n.clearSleepHistory),
             ),
           ],
         ),

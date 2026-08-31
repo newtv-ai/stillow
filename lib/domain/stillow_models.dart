@@ -30,9 +30,17 @@ enum ContentRegion { mainlandChina, international }
 
 enum RegionPreference { automatic, mainlandChina, international }
 
+enum AppLanguagePreference { system, simplifiedChinese, english }
+
+enum AudioLanguagePreference { automatic, chinese, english, any }
+
 enum SleepUseContext { bedtime, nightAwake }
 
 enum PlaybackType { assetAudio, directAudio }
+
+enum PlaybackOrigin { catalog, user }
+
+enum UserSoundSourceKind { fileCopy, devicePath }
 
 enum SessionKind {
   guidedVoice,
@@ -61,7 +69,11 @@ class UserProfile {
     this.sessionAffinities = const {},
     this.favoriteSessionIds = const {},
     this.regionPreference = RegionPreference.automatic,
+    this.appLanguagePreference = AppLanguagePreference.system,
+    this.audioLanguagePreference = AudioLanguagePreference.automatic,
     this.nightPresetSessionId,
+    this.tonightDefaultUserSoundId,
+    this.nightPresetUserSoundId,
   });
 
   final bool onboardingComplete;
@@ -77,7 +89,11 @@ class UserProfile {
   final Map<String, int> sessionAffinities;
   final Set<String> favoriteSessionIds;
   final RegionPreference regionPreference;
+  final AppLanguagePreference appLanguagePreference;
+  final AudioLanguagePreference audioLanguagePreference;
   final String? nightPresetSessionId;
+  final String? tonightDefaultUserSoundId;
+  final String? nightPresetUserSoundId;
 
   UserProfile copyWith({
     bool? onboardingComplete,
@@ -93,7 +109,14 @@ class UserProfile {
     Map<String, int>? sessionAffinities,
     Set<String>? favoriteSessionIds,
     RegionPreference? regionPreference,
+    AppLanguagePreference? appLanguagePreference,
+    AudioLanguagePreference? audioLanguagePreference,
     String? nightPresetSessionId,
+    bool clearNightPresetSessionId = false,
+    String? tonightDefaultUserSoundId,
+    bool clearTonightDefaultUserSoundId = false,
+    String? nightPresetUserSoundId,
+    bool clearNightPresetUserSoundId = false,
   }) {
     return UserProfile(
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -109,7 +132,19 @@ class UserProfile {
       sessionAffinities: sessionAffinities ?? this.sessionAffinities,
       favoriteSessionIds: favoriteSessionIds ?? this.favoriteSessionIds,
       regionPreference: regionPreference ?? this.regionPreference,
-      nightPresetSessionId: nightPresetSessionId ?? this.nightPresetSessionId,
+      appLanguagePreference:
+          appLanguagePreference ?? this.appLanguagePreference,
+      audioLanguagePreference:
+          audioLanguagePreference ?? this.audioLanguagePreference,
+      nightPresetSessionId: clearNightPresetSessionId
+          ? null
+          : nightPresetSessionId ?? this.nightPresetSessionId,
+      tonightDefaultUserSoundId: clearTonightDefaultUserSoundId
+          ? null
+          : tonightDefaultUserSoundId ?? this.tonightDefaultUserSoundId,
+      nightPresetUserSoundId: clearNightPresetUserSoundId
+          ? null
+          : nightPresetUserSoundId ?? this.nightPresetUserSoundId,
     );
   }
 
@@ -286,6 +321,39 @@ class GuidedSession {
     durationSeconds: durationSeconds,
   );
 
+  GuidedSession withLocalizedText({
+    required String title,
+    required String subtitle,
+    required String shortLabel,
+  }) => GuidedSession(
+    id: id,
+    title: title,
+    subtitle: subtitle,
+    shortLabel: shortLabel,
+    kind: kind,
+    tags: tags,
+    regions: regions,
+    provider: provider,
+    playbackType: playbackType,
+    playbackUrl: playbackUrl,
+    adFree: adFree,
+    rightsStatus: rightsStatus,
+    sourcePage: sourcePage,
+    sourceTitle: sourceTitle,
+    creator: creator,
+    licenseName: licenseName,
+    licenseUrl: licenseUrl,
+    loop: loop,
+    priority: priority,
+    enabled: enabled,
+    isCandidate: isCandidate,
+    languageCode: languageCode,
+    localFilePath: localFilePath,
+    assetPath: assetPath,
+    sha256: sha256,
+    durationSeconds: durationSeconds,
+  );
+
   String get providerLabel => switch (provider) {
     'internetArchive' => 'Internet Archive',
     'librivox' => 'LibriVox',
@@ -306,4 +374,223 @@ class GuidedSession {
     SessionKind.lecture => Icons.school_outlined,
     SessionKind.breathingPacer => Icons.air_rounded,
   };
+}
+
+class UserSound {
+  const UserSound({
+    required this.id,
+    required this.title,
+    required this.sourceKind,
+    required this.originalFileName,
+    required this.loop,
+    required this.attenuateLoops,
+    required this.createdAt,
+    this.relativePath = '',
+    this.sourcePath,
+    this.accessBookmark,
+    this.defaultTimerMinutes = 30,
+    this.durationSeconds,
+    this.localFilePath,
+  });
+
+  final String id;
+  final String title;
+  final UserSoundSourceKind sourceKind;
+  final String relativePath;
+  final String? sourcePath;
+  final String? accessBookmark;
+  final String originalFileName;
+  final bool loop;
+  final bool attenuateLoops;
+  final int? defaultTimerMinutes;
+  final DateTime createdAt;
+  final int? durationSeconds;
+  final String? localFilePath;
+
+  Uri? get playbackUri {
+    final path = sourcePath;
+    if (path == null || !path.startsWith('content:')) return null;
+    return Uri.tryParse(path);
+  }
+
+  UserSound copyWith({
+    String? title,
+    bool? loop,
+    bool? attenuateLoops,
+    Object? defaultTimerMinutes = _unsetValue,
+    int? durationSeconds,
+    String? localFilePath,
+  }) => UserSound(
+    id: id,
+    title: title ?? this.title,
+    sourceKind: sourceKind,
+    relativePath: relativePath,
+    sourcePath: sourcePath,
+    accessBookmark: accessBookmark,
+    originalFileName: originalFileName,
+    loop: loop ?? this.loop,
+    attenuateLoops: attenuateLoops ?? this.attenuateLoops,
+    defaultTimerMinutes: identical(defaultTimerMinutes, _unsetValue)
+        ? this.defaultTimerMinutes
+        : defaultTimerMinutes as int?,
+    createdAt: createdAt,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    localFilePath: localFilePath ?? this.localFilePath,
+  );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'title': title,
+    'sourceKind': sourceKind.name,
+    'relativePath': relativePath,
+    'sourcePath': sourcePath,
+    'accessBookmark': accessBookmark,
+    'originalFileName': originalFileName,
+    'loop': loop,
+    'attenuateLoops': attenuateLoops,
+    'defaultTimerMinutes': defaultTimerMinutes,
+    'createdAt': createdAt.toIso8601String(),
+    'durationSeconds': durationSeconds,
+  };
+
+  static UserSound? tryFromJson(Object? value) {
+    if (value is! Map) return null;
+    final json = Map<String, dynamic>.from(value);
+    final id = json['id'];
+    final title = json['title'];
+    final relativePathValue = json['relativePath'];
+    final sourcePathValue = json['sourcePath'];
+    final accessBookmarkValue = json['accessBookmark'];
+    final originalFileName = json['originalFileName'];
+    final createdAtValue = json['createdAt'];
+    final createdAt = createdAtValue is String
+        ? DateTime.tryParse(createdAtValue)
+        : null;
+    final sourceKindValue = json['sourceKind'];
+    final sourceKind = sourceKindValue == null
+        ? UserSoundSourceKind.fileCopy
+        : sourceKindValue is String
+        ? _enumByName(UserSoundSourceKind.values, sourceKindValue)
+        : null;
+    final timerValue = json['defaultTimerMinutes'];
+    final durationValue = json['durationSeconds'];
+    if (id is! String ||
+        id.isEmpty ||
+        title is! String ||
+        title.trim().isEmpty ||
+        originalFileName is! String ||
+        originalFileName.isEmpty ||
+        createdAt == null ||
+        sourceKind == null ||
+        timerValue != null && timerValue is! num ||
+        durationValue != null && durationValue is! num ||
+        accessBookmarkValue != null && accessBookmarkValue is! String) {
+      return null;
+    }
+    final relativePath = relativePathValue is String ? relativePathValue : '';
+    final sourcePath = sourcePathValue is String ? sourcePathValue : null;
+    if (sourceKind == UserSoundSourceKind.fileCopy && relativePath.isEmpty) {
+      return null;
+    }
+    if (sourceKind == UserSoundSourceKind.devicePath &&
+        (sourcePath == null || sourcePath.isEmpty)) {
+      return null;
+    }
+    final timer = !json.containsKey('defaultTimerMinutes')
+        ? 30
+        : timerValue == null
+        ? null
+        : (timerValue as num).toInt();
+    if (timer != null && !const {15, 30, 45, 60}.contains(timer)) return null;
+    return UserSound(
+      id: id,
+      title: title.trim(),
+      sourceKind: sourceKind,
+      relativePath: relativePath,
+      sourcePath: sourcePath,
+      accessBookmark: accessBookmarkValue is String
+          ? accessBookmarkValue
+          : null,
+      originalFileName: originalFileName,
+      loop: json['loop'] == true,
+      attenuateLoops: json['attenuateLoops'] == true,
+      defaultTimerMinutes: timer,
+      createdAt: createdAt,
+      durationSeconds: durationValue == null
+          ? null
+          : (durationValue as num).toInt().clamp(0, 86400),
+    );
+  }
+}
+
+class PlaybackItem {
+  const PlaybackItem._({
+    required this.origin,
+    required this.guidedSession,
+    required this.userSound,
+    required this.userSubtitle,
+    required this.userShortLabel,
+    required this.userCreatorLabel,
+  });
+
+  factory PlaybackItem.fromGuidedSession(GuidedSession session) =>
+      PlaybackItem._(
+        origin: PlaybackOrigin.catalog,
+        guidedSession: session,
+        userSound: null,
+        userSubtitle: null,
+        userShortLabel: null,
+        userCreatorLabel: null,
+      );
+
+  factory PlaybackItem.fromUserSound(
+    UserSound sound, {
+    required String subtitle,
+    required String shortLabel,
+    required String creatorLabel,
+  }) => PlaybackItem._(
+    origin: PlaybackOrigin.user,
+    guidedSession: null,
+    userSound: sound,
+    userSubtitle: subtitle,
+    userShortLabel: shortLabel,
+    userCreatorLabel: creatorLabel,
+  );
+
+  final PlaybackOrigin origin;
+  final GuidedSession? guidedSession;
+  final UserSound? userSound;
+  final String? userSubtitle;
+  final String? userShortLabel;
+  final String? userCreatorLabel;
+
+  bool get isUserSound => origin == PlaybackOrigin.user;
+  String get id => guidedSession?.id ?? 'user:${userSound!.id}';
+  String get title => guidedSession?.title ?? userSound!.title;
+  String get subtitle => guidedSession?.subtitle ?? userSubtitle!;
+  String get shortLabel => guidedSession?.shortLabel ?? userShortLabel!;
+  String get creator => guidedSession?.creator ?? userCreatorLabel!;
+  bool get loop => guidedSession?.loop ?? userSound!.loop;
+  bool get attenuateLoops => guidedSession != null
+      ? guidedSession!.loop && guidedSession!.kind == SessionKind.music
+      : userSound!.loop && userSound!.attenuateLoops;
+  bool get isCandidate => guidedSession?.isCandidate ?? false;
+  String? get localFilePath =>
+      guidedSession?.localFilePath ?? userSound?.localFilePath;
+  String? get assetPath => guidedSession?.assetPath;
+  Uri? get playbackUrl => guidedSession?.playbackUrl ?? userSound?.playbackUri;
+  PlaybackType? get playbackType => guidedSession?.playbackType;
+  int? get durationSeconds =>
+      guidedSession?.durationSeconds ?? userSound?.durationSeconds;
+  IconData get icon => guidedSession?.icon ?? Icons.audio_file_rounded;
+}
+
+const Object _unsetValue = Object();
+
+T? _enumByName<T extends Enum>(List<T> values, String? name) {
+  if (name == null) return null;
+  for (final value in values) {
+    if (value.name == name) return value;
+  }
+  return null;
 }

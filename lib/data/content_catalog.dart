@@ -12,27 +12,43 @@ class ContentCatalog {
     List<GuidedSession> candidates = const [],
   }) : items = List.unmodifiable(items),
        studyItems = List.unmodifiable(studyItems),
-       candidates = List.unmodifiable(candidates);
+       candidates = List.unmodifiable(candidates),
+       _localizations = const {};
+
+  ContentCatalog._({
+    required this.schemaVersion,
+    required List<GuidedSession> items,
+    required List<GuidedSession> studyItems,
+    required List<GuidedSession> candidates,
+    required Map<String, _CatalogLocale> localizations,
+  }) : items = List.unmodifiable(items),
+       studyItems = List.unmodifiable(studyItems),
+       candidates = List.unmodifiable(candidates),
+       _localizations = Map.unmodifiable(localizations);
 
   final int schemaVersion;
   final List<GuidedSession> items;
   final List<GuidedSession> studyItems;
   final List<GuidedSession> candidates;
+  final Map<String, _CatalogLocale> _localizations;
 
   static Future<ContentCatalog> loadAsset({
     String path = 'assets/content/audio_catalog.json',
     String studyPath = 'assets/content/study_drowsy_catalog.json',
     String candidatePath = 'assets/content/audio_candidates.json',
+    String localizationPath = 'assets/content/content_localizations.json',
   }) async {
     final jsonTexts = await Future.wait([
       rootBundle.loadString(path),
       rootBundle.loadString(studyPath),
       rootBundle.loadString(candidatePath),
+      rootBundle.loadString(localizationPath),
     ]);
     return ContentCatalog.fromJsonString(
       jsonTexts[0],
       studyJsonText: jsonTexts[1],
       candidateJsonText: jsonTexts[2],
+      localizationJsonText: jsonTexts[3],
     );
   }
 
@@ -40,6 +56,7 @@ class ContentCatalog {
     String jsonText, {
     String? studyJsonText,
     String? candidateJsonText,
+    String? localizationJsonText,
   }) {
     final root = jsonDecode(jsonText) as Map<String, dynamic>;
     final rawItems = root['items'] as List<dynamic>? ?? const [];
@@ -57,13 +74,99 @@ class ContentCatalog {
     final candidates = candidateJsonText == null
         ? const <GuidedSession>[]
         : _candidateSessionsFromJson(candidateJsonText);
+    final localizations = localizationJsonText == null
+        ? const <String, _CatalogLocale>{}
+        : _catalogLocalizationsFromJson(localizationJsonText);
 
-    return ContentCatalog(
+    return ContentCatalog._(
       schemaVersion: root['schemaVersion'] as int? ?? 1,
       items: items,
       studyItems: studyItems,
       candidates: candidates,
+      localizations: localizations,
     );
+  }
+
+  ContentCatalog forExperience({
+    required String interfaceLanguageCode,
+    required AudioLanguagePreference audioLanguagePreference,
+  }) {
+    final interfaceLanguage = interfaceLanguageCode == 'zh' ? 'zh' : 'en';
+    final spokenLanguage = switch (audioLanguagePreference) {
+      AudioLanguagePreference.automatic => interfaceLanguage,
+      AudioLanguagePreference.chinese => 'zh',
+      AudioLanguagePreference.english => 'en',
+      AudioLanguagePreference.any => null,
+    };
+    final locale = _localizations[interfaceLanguage];
+
+    List<GuidedSession> prepare(Iterable<GuidedSession> sessions) => sessions
+        .where((session) => _matchesSpokenLanguage(session, spokenLanguage))
+        .map((session) => _localizedSession(session, locale))
+        .toList(growable: false);
+
+    return ContentCatalog._(
+      schemaVersion: schemaVersion,
+      items: prepare(items),
+      studyItems: prepare(studyItems),
+      candidates: prepare(candidates),
+      localizations: _localizations,
+    );
+  }
+
+  static bool _matchesSpokenLanguage(
+    GuidedSession session,
+    String? spokenLanguage,
+  ) {
+    if (spokenLanguage == null || session.languageCode == 'zxx') return true;
+    if (spokenLanguage == 'zh') {
+      return session.languageCode.toLowerCase().startsWith('zh');
+    }
+    return session.languageCode.toLowerCase() == spokenLanguage;
+  }
+
+  static GuidedSession _localizedSession(
+    GuidedSession session,
+    _CatalogLocale? locale,
+  ) {
+    if (locale == null) return session;
+    final translated = locale.sessions[session.id];
+    if (translated != null) {
+      return session.withLocalizedText(
+        title: translated.title,
+        subtitle: translated.subtitle,
+        shortLabel: translated.shortLabel,
+      );
+    }
+    if (!session.isCandidate) return session;
+
+    final copy = locale.candidate;
+    final contentLabel = switch (session.kind) {
+      SessionKind.lecture => copy.spokenKnowledge,
+      SessionKind.music => copy.music,
+      _ => copy.soundscape,
+    };
+    final duration = _durationLabelForLocale(
+      session.durationSeconds,
+      fallback: copy.durationUnknown,
+    );
+    return session.withLocalizedText(
+      title: session.sourceTitle,
+      subtitle: '$contentLabel · $duration · ${copy.awaitingReview}',
+      shortLabel: '${copy.candidatePrefix} $contentLabel · $duration',
+    );
+  }
+
+  static String _durationLabelForLocale(
+    int? seconds, {
+    required String fallback,
+  }) {
+    if (seconds == null || seconds <= 0) return fallback;
+    final minutes = (seconds / 60).round();
+    if (minutes < 60) return '$minutes min';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    return rest == 0 ? '$hours hr' : '$hours hr $rest min';
   }
 
   List<GuidedSession> sessionsFor(ContentRegion region) {
@@ -139,6 +242,10 @@ class ContentCatalog {
         ? sameKind.first
         : (available.isNotEmpty ? available.first : null);
   }
+
+  bool get hasGuidedRelaxation => items.any(
+    (session) => session.isPlaybackEligible && session.tags.contains('guided'),
+  );
 
   GuidedSession? findById(String? id) {
     if (id == null) return null;
@@ -547,4 +654,91 @@ abstract final class ContentRegionResolver {
     RegionPreference.mainlandChina => ContentRegion.mainlandChina,
     RegionPreference.international => ContentRegion.international,
   };
+}
+
+Map<String, _CatalogLocale> _catalogLocalizationsFromJson(String text) {
+  final root = jsonDecode(text) as Map<String, dynamic>;
+  final locales = root['locales'] as Map<String, dynamic>? ?? const {};
+  return locales.map(
+    (code, value) =>
+        MapEntry(code, _CatalogLocale.fromJson(value as Map<String, dynamic>)),
+  );
+}
+
+String _localizedRequiredString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is! String || value.trim().isEmpty) {
+    throw FormatException('Missing localized content field: $key');
+  }
+  return value;
+}
+
+class _CatalogLocale {
+  const _CatalogLocale({required this.sessions, required this.candidate});
+
+  final Map<String, _LocalizedSessionText> sessions;
+  final _CandidateCopy candidate;
+
+  factory _CatalogLocale.fromJson(Map<String, dynamic> json) {
+    final rawSessions = json['sessions'] as Map<String, dynamic>? ?? const {};
+    return _CatalogLocale(
+      sessions: Map.unmodifiable(
+        rawSessions.map(
+          (id, value) => MapEntry(
+            id,
+            _LocalizedSessionText.fromJson(value as Map<String, dynamic>),
+          ),
+        ),
+      ),
+      candidate: _CandidateCopy.fromJson(
+        json['candidate'] as Map<String, dynamic>? ?? const {},
+      ),
+    );
+  }
+}
+
+class _LocalizedSessionText {
+  const _LocalizedSessionText({
+    required this.title,
+    required this.subtitle,
+    required this.shortLabel,
+  });
+
+  final String title;
+  final String subtitle;
+  final String shortLabel;
+
+  factory _LocalizedSessionText.fromJson(Map<String, dynamic> json) =>
+      _LocalizedSessionText(
+        title: _localizedRequiredString(json, 'title'),
+        subtitle: _localizedRequiredString(json, 'subtitle'),
+        shortLabel: _localizedRequiredString(json, 'shortLabel'),
+      );
+}
+
+class _CandidateCopy {
+  const _CandidateCopy({
+    required this.spokenKnowledge,
+    required this.soundscape,
+    required this.music,
+    required this.durationUnknown,
+    required this.awaitingReview,
+    required this.candidatePrefix,
+  });
+
+  final String spokenKnowledge;
+  final String soundscape;
+  final String music;
+  final String durationUnknown;
+  final String awaitingReview;
+  final String candidatePrefix;
+
+  factory _CandidateCopy.fromJson(Map<String, dynamic> json) => _CandidateCopy(
+    spokenKnowledge: _localizedRequiredString(json, 'spokenKnowledge'),
+    soundscape: _localizedRequiredString(json, 'soundscape'),
+    music: _localizedRequiredString(json, 'music'),
+    durationUnknown: _localizedRequiredString(json, 'durationUnknown'),
+    awaitingReview: _localizedRequiredString(json, 'awaitingReview'),
+    candidatePrefix: _localizedRequiredString(json, 'candidatePrefix'),
+  );
 }

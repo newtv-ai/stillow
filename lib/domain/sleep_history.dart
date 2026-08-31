@@ -231,9 +231,9 @@ class SleepHistorySnapshot {
         json['healthSamples'],
         HealthSleepSample.tryFromJson,
       ),
-      lastHealthSyncAt: DateTime.tryParse(
-        json['lastHealthSyncAt'] as String? ?? '',
-      ),
+      lastHealthSyncAt: json['lastHealthSyncAt'] is String
+          ? DateTime.tryParse(json['lastHealthSyncAt'] as String)
+          : null,
     );
   }
 }

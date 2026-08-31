@@ -136,6 +136,43 @@ void main() {
       );
     });
 
+    test('英语体验会本地化素材说明并只保留英文或无人声音频', () {
+      final english = catalog.forExperience(
+        interfaceLanguageCode: 'en',
+        audioLanguagePreference: AudioLanguagePreference.automatic,
+      );
+      final sessions = english.sessionsFor(ContentRegion.international);
+
+      expect(english.findById('music-first-light')?.title, 'First light');
+      expect(
+        sessions.every(
+          (session) =>
+              session.languageCode == 'en' || session.languageCode == 'zxx',
+        ),
+        isTrue,
+      );
+      expect(sessions.any((session) => session.languageCode == 'zh'), isFalse);
+    });
+
+    test('界面语言、音频语言和素材区域互相独立', () {
+      final englishUiWithChineseAudio = catalog.forExperience(
+        interfaceLanguageCode: 'en',
+        audioLanguagePreference: AudioLanguagePreference.chinese,
+      );
+      final sessions = englishUiWithChineseAudio.sessionsFor(
+        ContentRegion.mainlandChina,
+      );
+
+      expect(
+        sessions.any((session) => session.languageCode.startsWith('zh')),
+        isTrue,
+      );
+      expect(
+        englishUiWithChineseAudio.findById('narrative-city-lights-zh')?.title,
+        'Long Chinese reading: City Lights',
+      );
+    });
+
     test('每条启用素材都有 HTTPS 播放和来源地址', () {
       for (final item in catalog.items.where((item) => item.enabled)) {
         expect(item.playbackUrl.scheme, 'https', reason: item.id);
@@ -464,6 +501,20 @@ void main() {
             .any((item) => item.tags.contains('guided')),
         isTrue,
       );
+    });
+
+    test('中文朗读偏好下没有可播放的引导放松，英文则有', () {
+      final chinese = catalog.forExperience(
+        interfaceLanguageCode: 'zh',
+        audioLanguagePreference: AudioLanguagePreference.automatic,
+      );
+      final english = catalog.forExperience(
+        interfaceLanguageCode: 'en',
+        audioLanguagePreference: AudioLanguagePreference.english,
+      );
+
+      expect(chinese.hasGuidedRelaxation, isFalse);
+      expect(english.hasGuidedRelaxation, isTrue);
     });
 
     test('中文区同时提供音乐、长短中文女声和自然声', () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/stillow_models.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 
@@ -9,10 +10,12 @@ class OnboardingScreen extends StatefulWidget {
     super.key,
     required this.onComplete,
     this.initialProfile,
+    this.hasGuidedRelaxation = false,
   });
 
   final Future<void> Function(UserProfile profile) onComplete;
   final UserProfile? initialProfile;
+  final bool hasGuidedRelaxation;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -31,7 +34,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final profile = widget.initialProfile;
     _supportNeed = profile?.supportNeed;
     _soundPreference = profile?.soundPreference;
-    _guidancePreference = profile?.guidancePreference;
+    final guidance = profile?.guidancePreference;
+    _guidancePreference =
+        !widget.hasGuidedRelaxation && guidance == GuidancePreference.stepByStep
+        ? null
+        : guidance;
   }
 
   Future<void> _finish() async {
@@ -64,6 +71,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: StillowBackdrop(
         child: LayoutBuilder(
@@ -78,16 +86,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     if (_step > 0)
                       QuietIconButton(
                         icon: Icons.arrow_back_rounded,
-                        tooltip: '返回',
+                        tooltip: l10n.back,
                         onPressed: _back,
                       )
                     else
                       const StillowWordmark(),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: _saving ? null : _finish,
-                      child: Text(
-                        widget.initialProfile == null ? '先随便听听' : '保留现在',
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _saving ? null : _finish,
+                          child: Text(
+                            widget.initialProfile?.onboardingComplete == true
+                                ? l10n.onboardingKeep
+                                : l10n.onboardingSkip,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -134,7 +151,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text(
-                            _step == 2 ? '今晚先试试' : '继续',
+                            _step == 2
+                                ? l10n.onboardingTryTonight
+                                : l10n.continueLabel,
                             key: ValueKey(_step),
                           ),
                   ),
@@ -157,100 +176,102 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildStep({required bool compact}) {
+    final l10n = context.l10n;
     return switch (_step) {
       0 => _ChoiceStep<SupportNeed>(
-        title: '今晚，你更希望得到哪种陪伴？',
-        subtitle: '凭第一感觉，选最接近此刻的一项。',
+        title: l10n.onboardingNeedTitle,
+        subtitle: l10n.onboardingNeedSubtitle,
         value: _supportNeed,
         compact: compact,
         onChanged: (value) => setState(() => _supportNeed = value),
-        choices: const [
+        choices: [
           _Choice(
             value: SupportNeed.quietMind,
-            title: '想法停不下来',
+            title: l10n.needQuietMind,
             icon: Icons.cloud_outlined,
           ),
           _Choice(
             value: SupportNeed.notSleepy,
-            title: '脑袋没想什么，但还不困',
+            title: l10n.needNotSleepy,
             icon: Icons.visibility_outlined,
           ),
           _Choice(
             value: SupportNeed.sleepPressure,
-            title: '越想赶快睡，反而越清醒',
+            title: l10n.needSleepPressure,
             icon: Icons.hourglass_empty_rounded,
           ),
           _Choice(
             value: SupportNeed.relaxBody,
-            title: '让身体松下来',
+            title: l10n.needRelaxBody,
             icon: Icons.spa_outlined,
           ),
           _Choice(
             value: SupportNeed.maskNoise,
-            title: '把周围动静放远一点',
+            title: l10n.needMaskNoise,
             icon: Icons.water_drop_outlined,
           ),
           _Choice(
             value: SupportNeed.nightAwake,
-            title: '夜里醒来后，不容易再睡',
+            title: l10n.needNightAwake,
             icon: Icons.nights_stay_outlined,
           ),
           _Choice(
             value: SupportNeed.gentleCompany,
-            title: '说不上来，只想有人陪一会儿',
+            title: l10n.needGentleCompany,
             icon: Icons.nights_stay_outlined,
           ),
         ],
       ),
       1 => _ChoiceStep<SoundPreference>(
-        title: '什么声音会让你舒服一些？',
-        subtitle: '先选此刻更喜欢的声音，之后随时可以更换。',
+        title: l10n.onboardingSoundTitle,
+        subtitle: l10n.onboardingSoundSubtitle,
         value: _soundPreference,
         compact: compact,
         onChanged: (value) => setState(() => _soundPreference = value),
-        choices: const [
+        choices: [
           _Choice(
             value: SoundPreference.softVoice,
-            title: '轻柔的人声或中文朗读',
+            title: l10n.soundSoftVoice,
             icon: Icons.graphic_eq_rounded,
           ),
           _Choice(
             value: SoundPreference.familiarMusic,
-            title: '熟悉、平缓的音乐',
+            title: l10n.soundFamiliarMusic,
             icon: Icons.music_note_rounded,
           ),
           _Choice(
             value: SoundPreference.nature,
-            title: '雨声、风声等环境声',
+            title: l10n.soundNature,
             icon: Icons.grain_rounded,
           ),
           _Choice(
             value: SoundPreference.minimal,
-            title: '更喜欢安静，只要少量提示',
+            title: l10n.soundMinimal,
             icon: Icons.volume_down_outlined,
           ),
         ],
       ),
       _ => _ChoiceStep<GuidancePreference>(
-        title: '你喜欢怎样的陪伴？',
-        subtitle: '选择更喜欢的陪伴程度。',
+        title: l10n.onboardingGuidanceTitle,
+        subtitle: l10n.onboardingGuidanceSubtitle,
         value: _guidancePreference,
         compact: compact,
         onChanged: (value) => setState(() => _guidancePreference = value),
-        choices: const [
-          _Choice(
-            value: GuidancePreference.stepByStep,
-            title: '带着我一步步放松',
-            icon: Icons.route_outlined,
-          ),
+        choices: [
+          if (widget.hasGuidedRelaxation)
+            _Choice(
+              value: GuidancePreference.stepByStep,
+              title: l10n.guidanceStepByStep,
+              icon: Icons.route_outlined,
+            ),
           _Choice(
             value: GuidancePreference.occasional,
-            title: '偶尔提醒一下就好',
+            title: l10n.guidanceOccasional,
             icon: Icons.more_horiz_rounded,
           ),
           _Choice(
             value: GuidancePreference.ambientOnly,
-            title: '只听声音，保持安静',
+            title: l10n.guidanceAmbientOnly,
             icon: Icons.air_rounded,
           ),
         ],

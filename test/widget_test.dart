@@ -9,6 +9,7 @@ import 'package:stillow/domain/stillow_models.dart';
 import 'package:stillow/features/history/sleep_history_screen.dart';
 import 'package:stillow/features/morning/morning_review_screen.dart';
 import 'package:stillow/features/session/session_library_screen.dart';
+import 'package:stillow/l10n/l10n.dart';
 import 'package:stillow/services/offline_audio_store.dart';
 import 'package:stillow/theme/stillow_theme.dart';
 import 'package:stillow/widgets/soft_ui.dart';
@@ -28,7 +29,9 @@ void main() {
 
     await tester.pumpWidget(
       StillowApp(
-        initialProfile: const UserProfile(),
+        initialProfile: const UserProfile(
+          appLanguagePreference: AppLanguagePreference.simplifiedChinese,
+        ),
         preferenceStore: store,
         catalog: catalog,
         region: ContentRegion.mainlandChina,
@@ -58,6 +61,10 @@ void main() {
     expect(find.text('今晚，\n慢一点。'), findsOneWidget);
     expect(store.profile.onboardingComplete, isTrue);
     expect(store.profile.supportNeed, SupportNeed.quietMind);
+    expect(
+      store.profile.appLanguagePreference,
+      AppLanguagePreference.simplifiedChinese,
+    );
   });
 
   testWidgets('声音偏好的四个选项在常见窄屏内完整显示', (tester) async {
@@ -70,7 +77,9 @@ void main() {
 
     await tester.pumpWidget(
       StillowApp(
-        initialProfile: const UserProfile(),
+        initialProfile: const UserProfile(
+          appLanguagePreference: AppLanguagePreference.simplifiedChinese,
+        ),
         preferenceStore: MemoryPreferenceStore(),
         catalog: catalog,
         region: ContentRegion.mainlandChina,
@@ -104,6 +113,7 @@ void main() {
       supportNeed: SupportNeed.quietMind,
       soundPreference: SoundPreference.softVoice,
       guidancePreference: GuidancePreference.stepByStep,
+      appLanguagePreference: AppLanguagePreference.simplifiedChinese,
     );
 
     await tester.pumpWidget(
@@ -146,7 +156,7 @@ void main() {
 
   testWidgets('晨间回顾不打分，梦境解析显示娱乐边界', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: StillowTheme.dark, home: const MorningReviewScreen()),
+      _localizedTestApp(home: const MorningReviewScreen()),
     );
 
     await tester.tap(find.text('还是有点累'));
@@ -191,8 +201,7 @@ void main() {
     String? favoriteId;
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: StillowTheme.dark,
+      _localizedTestApp(
         home: SessionLibraryScreen(
           sessions: catalog.sessionsFor(ContentRegion.mainlandChina),
           favoriteSessionIds: const {},
@@ -230,8 +239,7 @@ void main() {
         .first;
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: StillowTheme.dark,
+      _localizedTestApp(
         home: SessionLibraryScreen(
           sessions: [candidate],
           favoriteSessionIds: const {},
@@ -275,8 +283,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: StillowTheme.dark,
+      _localizedTestApp(
         home: SleepHistoryScreen(
           historyStore: historyStore,
           healthGateway: MemorySleepHealthGateway(),
@@ -295,4 +302,170 @@ void main() {
     expect(find.text('轻雨'), findsOneWidget);
     expect(find.text('睡眠质量评分'), findsNothing);
   });
+
+  testWidgets('英语界面与英文素材元数据可以独立启用', (tester) async {
+    const profile = UserProfile(
+      onboardingComplete: true,
+      supportNeed: SupportNeed.quietMind,
+      soundPreference: SoundPreference.familiarMusic,
+      guidancePreference: GuidancePreference.ambientOnly,
+      appLanguagePreference: AppLanguagePreference.english,
+      audioLanguagePreference: AudioLanguagePreference.english,
+    );
+
+    await tester.pumpWidget(
+      StillowApp(
+        initialProfile: profile,
+        preferenceStore: MemoryPreferenceStore(profile),
+        catalog: catalog,
+        region: ContentRegion.international,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('A slower\nevening.'), findsOneWidget);
+    expect(find.text('Try tonight'), findsOneWidget);
+    expect(find.text('First light'), findsOneWidget);
+    expect(find.text('今晚，\n慢一点。'), findsNothing);
+  });
+
+  testWidgets('英语首次选择在常见窄屏内不溢出', (tester) async {
+    tester.view.devicePixelRatio = 2.5;
+    tester.view.physicalSize = const Size(920, 2048);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      StillowApp(
+        initialProfile: const UserProfile(
+          appLanguagePreference: AppLanguagePreference.english,
+        ),
+        preferenceStore: MemoryPreferenceStore(),
+        catalog: catalog,
+        region: ContentRegion.international,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('What kind of support would feel best tonight?'),
+      findsOneWidget,
+    );
+    expect(find.text('Listen first'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('中文界面不提供当前无法兑现的逐步放松选项', (tester) async {
+    await tester.pumpWidget(
+      StillowApp(
+        initialProfile: const UserProfile(
+          appLanguagePreference: AppLanguagePreference.simplifiedChinese,
+        ),
+        preferenceStore: MemoryPreferenceStore(),
+        catalog: catalog,
+        region: ContentRegion.mainlandChina,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
+      ),
+    );
+
+    await tester.tap(find.text('想法停不下来'));
+    await tester.pump();
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('轻柔的人声或中文朗读'));
+    await tester.pump();
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('带着我一步步放松'), findsNothing);
+    expect(find.text('偶尔提醒一下就好'), findsOneWidget);
+    expect(find.text('只听声音，保持安静'), findsOneWidget);
+  });
+
+  testWidgets('英语界面在有引导音频时保留逐步放松选项', (tester) async {
+    await tester.pumpWidget(
+      StillowApp(
+        initialProfile: const UserProfile(
+          appLanguagePreference: AppLanguagePreference.english,
+          audioLanguagePreference: AudioLanguagePreference.english,
+        ),
+        preferenceStore: MemoryPreferenceStore(),
+        catalog: catalog,
+        region: ContentRegion.international,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('My thoughts keep going'));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('A gentle voice or calm reading'));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guide me through relaxing'), findsOneWidget);
+  });
+
+  testWidgets('个人声音在列表中时首页可播放并进入我的声音列表', (tester) async {
+    final sound = UserSound(
+      id: 'personal-rain',
+      title: '我的长雨声',
+      sourceKind: UserSoundSourceKind.fileCopy,
+      relativePath: '1.mp3',
+      originalFileName: 'rain.mp3',
+      loop: true,
+      attenuateLoops: true,
+      createdAt: DateTime(2026),
+      localFilePath: 'C:/private/1.mp3',
+    );
+
+    await tester.pumpWidget(
+      StillowApp(
+        initialProfile: const UserProfile(
+          onboardingComplete: true,
+          appLanguagePreference: AppLanguagePreference.simplifiedChinese,
+        ),
+        preferenceStore: MemoryPreferenceStore(),
+        catalog: catalog,
+        region: ContentRegion.mainlandChina,
+        sleepHistoryStore: MemorySleepHistoryStore(),
+        sleepHealthGateway: MemorySleepHealthGateway(),
+        initialUserSounds: [sound],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('我的长雨声'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('我的声音'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('我的声音'));
+    await tester.pumpAndSettle();
+    expect(find.text('列表里的会按顺序播放。不想听了，从列表拿掉就行。'), findsOneWidget);
+    expect(find.text('我的长雨声'), findsOneWidget);
+  });
 }
+
+Widget _localizedTestApp({
+  required Widget home,
+  Locale locale = const Locale('zh'),
+}) => MaterialApp(
+  locale: locale,
+  supportedLocales: AppLocalizations.supportedLocales,
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  theme: StillowTheme.dark,
+  home: home,
+);

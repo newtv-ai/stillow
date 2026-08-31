@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/sleep_support_review.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
 
@@ -26,6 +27,7 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
   );
 
   Future<void> _showResult() async {
+    final l10n = context.l10n;
     final guidance = evaluateSleepSupportReview(_answers);
     final considerProfessional =
         guidance == SleepSupportGuidance.considerProfessionalSupport;
@@ -41,36 +43,38 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                considerProfessional ? '值得请专业人士一起看看' : '先继续观察一段时间',
+                considerProfessional
+                    ? l10n.reviewProfessionalTitle
+                    : l10n.reviewObserveTitle,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
               Text(
                 considerProfessional
-                    ? '你的选择里出现了持续、频繁或已经影响白天状态的信号。预约睡眠门诊、全科或熟悉睡眠问题的专业人士，会比继续只换声音更合适。'
-                    : '这些选择还不足以说明是慢性失眠。可以继续留意自己的实际感受；如果困扰加重，或你只是希望有人一起梳理，也随时可以咨询专业人士。',
+                    ? l10n.reviewProfessionalBody
+                    : l10n.reviewObserveBody,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 14),
               Text(
-                '临床评估通常会一起考虑：困难是否每周大约 3 晚或更多、是否持续约 3 个月或更久、白天是否受影响，以及是否已经有足够的睡眠时间和合适环境。这里没有做诊断，也没有生成分数。',
+                l10n.reviewClinicalContext,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               if (_sleepOpportunity == SleepOpportunity.usuallyNotEnough) ...[
                 const SizedBox(height: 12),
                 Text(
-                  '你也提到最近常常没有留出足够睡眠时间。先尽量照顾这个现实条件会有帮助；如果做不到或白天已经很难受，同样可以向专业人士求助。',
+                  l10n.reviewSleepOpportunityNote,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
               const SizedBox(height: 12),
               Text(
-                '如果经常憋醒、喘醒、被观察到呼吸暂停，或困倦已经影响驾驶安全，请尽早就医确认。',
+                l10n.reviewBreathingSafety,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
               Text(
-                '专业评估可能讨论 CBT-I、其他睡眠问题和必要时的药物；药物不是 App 自动给出的默认答案。',
+                l10n.reviewTreatmentNote,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 18),
@@ -78,7 +82,7 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
                 alignment: Alignment.centerRight,
                 child: FilledButton.tonal(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('我知道了'),
+                  child: Text(l10n.understood),
                 ),
               ),
             ],
@@ -90,6 +94,7 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: StillowBackdrop(
         padding: EdgeInsets.zero,
@@ -100,88 +105,115 @@ class _SleepSupportReviewScreenState extends State<SleepSupportReviewScreen> {
               alignment: Alignment.centerLeft,
               child: QuietIconButton(
                 icon: Icons.close_rounded,
-                tooltip: '暂不回顾',
+                tooltip: l10n.reviewDismiss,
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
             const SizedBox(height: 18),
-            Text('一起轻轻回顾一下', style: Theme.of(context).textTheme.displaySmall),
+            Text(
+              l10n.reviewTitle,
+              style: Theme.of(context).textTheme.displaySmall,
+            ),
             const SizedBox(height: 8),
             Text(
-              '这不是考试，也不会给你贴标签。可以只选愿意回答的；选择仅用于当前页面，退出后不保存。',
+              l10n.reviewIntro,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 18),
             _ReviewQuestion<SleepDifficultyDuration>(
-              title: '这样的入睡或夜醒困难，大概持续多久了？',
+              title: l10n.reviewDurationQuestion,
               value: _duration,
               onChanged: (value) => setState(() => _duration = value),
-              choices: const [
-                _ReviewChoice(SleepDifficultyDuration.underOneMonth, '不到 1 个月'),
+              choices: [
+                _ReviewChoice(
+                  SleepDifficultyDuration.underOneMonth,
+                  l10n.reviewUnderMonth,
+                ),
                 _ReviewChoice(
                   SleepDifficultyDuration.oneToThreeMonths,
-                  '1～3 个月',
+                  l10n.reviewOneToThreeMonths,
                 ),
                 _ReviewChoice(
                   SleepDifficultyDuration.threeMonthsOrMore,
-                  '3 个月以上',
+                  l10n.reviewThreeMonths,
                 ),
-                _ReviewChoice(SleepDifficultyDuration.unsure, '不太确定'),
+                _ReviewChoice(
+                  SleepDifficultyDuration.unsure,
+                  l10n.reviewUnsure,
+                ),
               ],
             ),
             const SizedBox(height: 14),
             _ReviewQuestion<SleepDifficultyFrequency>(
-              title: '最近一周里，大概有几个晚上会遇到？',
+              title: l10n.reviewFrequencyQuestion,
               value: _frequency,
               onChanged: (value) => setState(() => _frequency = value),
-              choices: const [
+              choices: [
                 _ReviewChoice(
                   SleepDifficultyFrequency.lessThanWeekly,
-                  '不到每周一次',
+                  l10n.reviewLessThanWeekly,
                 ),
                 _ReviewChoice(
                   SleepDifficultyFrequency.oneOrTwoNights,
-                  '每周 1～2 晚',
+                  l10n.reviewOneTwoNights,
                 ),
                 _ReviewChoice(
                   SleepDifficultyFrequency.threeOrMoreNights,
-                  '每周 3 晚或更多',
+                  l10n.reviewThreeNights,
                 ),
-                _ReviewChoice(SleepDifficultyFrequency.unsure, '说不准'),
+                _ReviewChoice(
+                  SleepDifficultyFrequency.unsure,
+                  l10n.reviewFrequencyUnsure,
+                ),
               ],
             ),
             const SizedBox(height: 14),
             _ReviewQuestion<DaytimeImpact>(
-              title: '它对白天的精神、注意力或情绪有什么影响？',
+              title: l10n.reviewDaytimeQuestion,
               value: _daytimeImpact,
               onChanged: (value) => setState(() => _daytimeImpact = value),
-              choices: const [
-                _ReviewChoice(DaytimeImpact.little, '几乎没有'),
-                _ReviewChoice(DaytimeImpact.noticeable, '能感觉到一些'),
-                _ReviewChoice(DaytimeImpact.clearOrUnsafe, '影响比较明显或安全'),
-                _ReviewChoice(DaytimeImpact.unsure, '不太确定'),
+              choices: [
+                _ReviewChoice(DaytimeImpact.little, l10n.reviewImpactLittle),
+                _ReviewChoice(
+                  DaytimeImpact.noticeable,
+                  l10n.reviewImpactNoticeable,
+                ),
+                _ReviewChoice(
+                  DaytimeImpact.clearOrUnsafe,
+                  l10n.reviewImpactClear,
+                ),
+                _ReviewChoice(DaytimeImpact.unsure, l10n.reviewUnsure),
               ],
             ),
             const SizedBox(height: 14),
             _ReviewQuestion<SleepOpportunity>(
-              title: '通常已经留出了够用的睡眠时间和相对合适的环境吗？',
+              title: l10n.reviewOpportunityQuestion,
               value: _sleepOpportunity,
               onChanged: (value) => setState(() => _sleepOpportunity = value),
-              choices: const [
-                _ReviewChoice(SleepOpportunity.usuallyEnough, '大多数时候有'),
-                _ReviewChoice(SleepOpportunity.varies, '有时有，有时没有'),
-                _ReviewChoice(SleepOpportunity.usuallyNotEnough, '大多数时候没有'),
-                _ReviewChoice(SleepOpportunity.unsure, '不太确定'),
+              choices: [
+                _ReviewChoice(
+                  SleepOpportunity.usuallyEnough,
+                  l10n.reviewOpportunityEnough,
+                ),
+                _ReviewChoice(
+                  SleepOpportunity.varies,
+                  l10n.reviewOpportunityVaries,
+                ),
+                _ReviewChoice(
+                  SleepOpportunity.usuallyNotEnough,
+                  l10n.reviewOpportunityNotEnough,
+                ),
+                _ReviewChoice(SleepOpportunity.unsure, l10n.reviewUnsure),
               ],
             ),
             const SizedBox(height: 26),
             FilledButton(
               onPressed: _showResult,
-              child: const Text('这样就好，看看说明'),
+              child: Text(l10n.reviewShowResult),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('先不回顾'),
+              child: Text(l10n.reviewSkip),
             ),
           ],
         ),

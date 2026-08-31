@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/stillow_models.dart';
+import '../../l10n/l10n.dart';
 import '../../services/offline_audio_store.dart';
 import '../../theme/stillow_theme.dart';
 import '../../widgets/soft_ui.dart';
@@ -14,16 +15,16 @@ class SessionLibraryScreen extends StatefulWidget {
     required this.favoriteSessionIds,
     required this.onFavoriteChanged,
     required this.offlineAudioStore,
-    this.title = '换一种\n舒服的方式',
-    this.subtitle = '可以按此刻的感觉更换。',
+    this.title,
+    this.subtitle,
   });
 
   final List<GuidedSession> sessions;
   final Set<String> favoriteSessionIds;
   final Future<void> Function(String sessionId) onFavoriteChanged;
   final OfflineAudioStore offlineAudioStore;
-  final String title;
-  final String subtitle;
+  final String? title;
+  final String? subtitle;
 
   @override
   State<SessionLibraryScreen> createState() => _SessionLibraryScreenState();
@@ -115,6 +116,7 @@ class _SessionLibraryScreenState extends State<SessionLibraryScreen> {
   }
 
   Future<void> _download(GuidedSession session) async {
+    final l10n = context.l10n;
     if (_downloadProgress.containsKey(session.id)) return;
     setState(() => _downloadProgress[session.id] = 0);
     try {
@@ -130,18 +132,34 @@ class _SessionLibraryScreenState extends State<SessionLibraryScreen> {
       setState(() => _downloadedIds.add(session.id));
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已经留在这台设备里了。')));
+      ).showSnackBar(SnackBar(content: Text(l10n.downloadComplete)));
+    } on OfflineAudioException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.error) {
+        OfflineAudioError.cancelled => l10n.downloadCancelled,
+        OfflineAudioError.quotaExceeded => l10n.downloadQuotaExceeded,
+        OfflineAudioError.timeout => l10n.downloadFailed,
+        OfflineAudioError.other => l10n.downloadFailed,
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('这次没下载好，网络方便时再试也可以。')));
+      ).showSnackBar(SnackBar(content: Text(l10n.downloadFailed)));
     } finally {
       if (mounted) setState(() => _downloadProgress.remove(session.id));
     }
   }
 
+  void _cancelDownload(GuidedSession session) {
+    widget.offlineAudioStore.cancelDownload(session.id);
+  }
+
   Future<void> _removeDownload(GuidedSession session) async {
+    final l10n = context.l10n;
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: StillowColors.surface,
@@ -153,10 +171,13 @@ class _SessionLibraryScreenState extends State<SessionLibraryScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('移除这份离线声音？', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                l10n.removeDownloadTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
               Text(
-                '只会清理下载文件，不会取消收藏；以后仍可在线播放或重新下载。',
+                l10n.removeDownloadBody,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 18),
@@ -164,12 +185,12 @@ class _SessionLibraryScreenState extends State<SessionLibraryScreen> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('先留着'),
+                    child: Text(l10n.keepForNow),
                   ),
                   const Spacer(),
                   FilledButton.tonal(
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('移除离线文件'),
+                    child: Text(l10n.removeOfflineFile),
                   ),
                 ],
               ),
@@ -194,108 +215,131 @@ class _SessionLibraryScreenState extends State<SessionLibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final visibleSessions = _visibleSessions;
     return Scaffold(
       body: StillowBackdrop(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            QuietIconButton(
-              icon: Icons.arrow_back_rounded,
-              tooltip: '返回',
-              onPressed: () => Navigator.of(context).pop(),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: QuietIconButton(
+                icon: Icons.arrow_back_rounded,
+                tooltip: l10n.back,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
-            const SizedBox(height: 20),
-            Text(widget.title, style: Theme.of(context).textTheme.displaySmall),
-            const SizedBox(height: 8),
-            Text(widget.subtitle, style: Theme.of(context).textTheme.bodyLarge),
-            const SizedBox(height: 18),
-            TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: '搜声音、作者或主题',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: '清空',
-                        onPressed: _searchController.clear,
-                        icon: const Icon(Icons.close_rounded),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            SliverToBoxAdapter(
+              child: Text(
+                widget.title ?? l10n.libraryDefaultTitle,
+                style: Theme.of(context).textTheme.displaySmall,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            SliverToBoxAdapter(
+              child: Text(
+                widget.subtitle ?? l10n.libraryDefaultSubtitle,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 18)),
+            SliverToBoxAdapter(
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: l10n.librarySearchHint,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: l10n.clear,
+                          onPressed: _searchController.clear,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final filter in _LibraryFilter.values) ...[
+                      ChoiceChip(
+                        selected: _filter == filter,
+                        onSelected: (_) => setState(() => _filter = filter),
+                        label: Text(_filterLabel(l10n, filter)),
                       ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final filter in _LibraryFilter.values) ...[
-                    ChoiceChip(
-                      selected: _filter == filter,
-                      onSelected: (_) => setState(() => _filter = filter),
-                      label: Text(_filterLabel(filter)),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              _checkingOffline
-                  ? '正在看看哪些声音已在设备里…'
-                  : '${visibleSessions.length} 段可选',
-              style: Theme.of(context).textTheme.bodyMedium,
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Text(
+                _checkingOffline
+                    ? l10n.libraryCheckingOffline
+                    : l10n.libraryAvailableCount(visibleSessions.length),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: visibleSessions.isEmpty
-                  ? _EmptyLibrary(filter: _filter)
-                  : ListView.separated(
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: visibleSessions.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final session = visibleSessions[index];
-                        final isDownloaded =
-                            session.playbackType == PlaybackType.assetAudio ||
-                            _downloadedIds.contains(session.id);
-                        return _LibraryCard(
-                          session: session,
-                          isFavorite: _favorites.contains(session.id),
-                          isDownloaded: isDownloaded,
-                          downloadProgress: _downloadProgress[session.id],
-                          isDownloading: _downloadProgress.containsKey(
-                            session.id,
-                          ),
-                          onTap: () => Navigator.of(context).pop(session),
-                          onFavorite: () => _toggleFavorite(session),
-                          onOffline:
-                              session.playbackType == PlaybackType.assetAudio
-                              ? null
-                              : isDownloaded
-                              ? () => _removeDownload(session)
-                              : () => _download(session),
-                        );
-                      },
-                    ),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 10)),
+            if (visibleSessions.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyLibrary(filter: _filter),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  if (index.isOdd) return const SizedBox(height: 12);
+                  final session = visibleSessions[index ~/ 2];
+                  final isDownloaded =
+                      session.playbackType == PlaybackType.assetAudio ||
+                      _downloadedIds.contains(session.id);
+                  final isDownloading = _downloadProgress.containsKey(
+                    session.id,
+                  );
+                  return _LibraryCard(
+                    session: session,
+                    isFavorite: _favorites.contains(session.id),
+                    isDownloaded: isDownloaded,
+                    downloadProgress: _downloadProgress[session.id],
+                    isDownloading: isDownloading,
+                    onTap: () => Navigator.of(context).pop(session),
+                    onFavorite: () => _toggleFavorite(session),
+                    onCancel: isDownloading
+                        ? () => _cancelDownload(session)
+                        : null,
+                    onOffline: session.playbackType == PlaybackType.assetAudio
+                        ? null
+                        : isDownloaded
+                        ? () => _removeDownload(session)
+                        : () => _download(session),
+                  );
+                }, childCount: visibleSessions.length * 2 - 1),
+              ),
           ],
         ),
       ),
     );
   }
 
-  static String _filterLabel(_LibraryFilter filter) => switch (filter) {
-    _LibraryFilter.all => '全部',
-    _LibraryFilter.favorites => '收藏',
-    _LibraryFilter.ambient => '环境声',
-    _LibraryFilter.music => '音乐',
-    _LibraryFilter.voice => '人声',
-    _LibraryFilter.courses => '科普',
-    _LibraryFilter.offline => '已离线',
-  };
+  static String _filterLabel(AppLocalizations l10n, _LibraryFilter filter) =>
+      switch (filter) {
+        _LibraryFilter.all => l10n.filterAll,
+        _LibraryFilter.favorites => l10n.filterFavorites,
+        _LibraryFilter.ambient => l10n.filterAmbient,
+        _LibraryFilter.music => l10n.filterMusic,
+        _LibraryFilter.voice => l10n.filterVoice,
+        _LibraryFilter.courses => l10n.filterCourses,
+        _LibraryFilter.offline => l10n.filterOffline,
+      };
 }
 
 class _LibraryCard extends StatelessWidget {
@@ -308,6 +352,7 @@ class _LibraryCard extends StatelessWidget {
     required this.onTap,
     required this.onFavorite,
     required this.onOffline,
+    this.onCancel,
   });
 
   final GuidedSession session;
@@ -318,9 +363,11 @@ class _LibraryCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onFavorite;
   final VoidCallback? onOffline;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Material(
       color: StillowColors.surface.withValues(alpha: 0.9),
       borderRadius: BorderRadius.circular(24),
@@ -369,19 +416,21 @@ class _LibraryCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         if (session.isCandidate)
-                          const _SmallLabel(
+                          _SmallLabel(
                             icon: Icons.rate_review_outlined,
-                            text: '待试听',
+                            text: l10n.candidateAwaitingReview,
                           ),
                         _SmallLabel(
                           icon: isDownloaded
                               ? Icons.offline_pin_outlined
                               : Icons.cloud_outlined,
-                          text: isDownloaded ? '离线可用' : '在线',
+                          text: isDownloaded
+                              ? l10n.availableOffline
+                              : l10n.online,
                         ),
                         _SmallLabel(
                           icon: Icons.translate_rounded,
-                          text: _languageLabel(session.languageCode),
+                          text: _languageLabel(l10n, session.languageCode),
                         ),
                       ],
                     ),
@@ -391,7 +440,7 @@ class _LibraryCard extends StatelessWidget {
               Column(
                 children: [
                   IconButton(
-                    tooltip: isFavorite ? '取消收藏' : '收藏',
+                    tooltip: isFavorite ? l10n.unfavorite : l10n.favorite,
                     onPressed: onFavorite,
                     icon: Icon(
                       isFavorite
@@ -403,9 +452,10 @@ class _LibraryCard extends StatelessWidget {
                         : StillowColors.linenMuted,
                   ),
                   if (isDownloading)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SizedBox.square(
+                    IconButton(
+                      tooltip: l10n.cancelDownload,
+                      onPressed: onCancel,
+                      icon: SizedBox.square(
                         dimension: 20,
                         child: CircularProgressIndicator(
                           value: downloadProgress,
@@ -416,10 +466,10 @@ class _LibraryCard extends StatelessWidget {
                   else
                     IconButton(
                       tooltip: session.playbackType == PlaybackType.assetAudio
-                          ? '随应用离线提供'
+                          ? l10n.bundledOffline
                           : isDownloaded
-                          ? '管理离线文件'
-                          : '下载到设备',
+                          ? l10n.manageOfflineFile
+                          : l10n.downloadToDevice,
                       onPressed: onOffline,
                       icon: Icon(
                         session.playbackType == PlaybackType.assetAudio
@@ -439,12 +489,15 @@ class _LibraryCard extends StatelessWidget {
     );
   }
 
-  static String _languageLabel(String code) => switch (code) {
-    'zh' => '中文',
-    'en' => '英文',
-    'zxx' => '无人声',
-    _ => code.toUpperCase(),
-  };
+  static String _languageLabel(AppLocalizations l10n, String code) =>
+      switch (code) {
+        'zh' => l10n.spokenChinese,
+        'zh-Hant' => l10n.spokenTraditionalChinese,
+        'zh-yue' => l10n.spokenCantonese,
+        'en' => l10n.spokenEnglish,
+        'zxx' => l10n.noSpokenLanguage,
+        _ => code.toUpperCase(),
+      };
 }
 
 class _SmallLabel extends StatelessWidget {
@@ -480,13 +533,14 @@ class _EmptyLibrary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Text(
           filter == _LibraryFilter.favorites
-              ? '还没有收藏。听到舒服的声音时，轻点小心形就好。'
-              : '这里暂时没有合适的结果，换个词或分类看看。',
+              ? l10n.emptyFavorites
+              : l10n.emptyLibrary,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyLarge,
         ),

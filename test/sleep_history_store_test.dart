@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -135,6 +136,45 @@ void main() {
     ).load();
 
     expect(snapshot.isEmpty, isTrue);
+  });
+
+  test('历史 JSON 中错误的时间戳或列表类型不会阻止读取', () {
+    final snapshot = SleepHistorySnapshot.fromJson({
+      'lastHealthSyncAt': 123,
+      'appSessions': 'broken',
+    });
+    expect(snapshot.isEmpty, isTrue);
+    expect(snapshot.lastHealthSyncAt, isNull);
+  });
+
+  test('读取历史时会把超过 30 天的记录从磁盘删除', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'stillow-history-prune-',
+    );
+    addTearDown(() async {
+      if (directory.existsSync()) await directory.delete(recursive: true);
+    });
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}sleep_history.json',
+    );
+    final stale = SleepHistorySnapshot(
+      appSessions: [
+        _session('old', DateTime(2026, 7, 1, 23)),
+        _session('recent', DateTime(2026, 8, 29, 23)),
+      ],
+    );
+    await file.writeAsString(jsonEncode(stale.toJson()));
+
+    final loaded = await LocalSleepHistoryStore(
+      clock: () => DateTime(2026, 8, 30, 9),
+      directoryProvider: () async => directory,
+    ).load();
+
+    expect(loaded.appSessions.map((item) => item.id), ['recent']);
+    final disk = jsonDecode(await file.readAsString()) as Map;
+    expect((disk['appSessions'] as List).map((item) => (item as Map)['id']), [
+      'recent',
+    ]);
   });
 }
 
