@@ -73,3 +73,41 @@ jobs:
 
       - name: Build Android debug APK
         run: flutter build apk --debug
+
+  ios-simulator:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Flutter stable
+        run: |
+          git clone https://github.com/flutter/flutter.git --depth 1 --branch stable "$HOME/flutter"
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Show Flutter and Xcode versions
+        run: |
+          flutter --version
+          xcodebuild -version
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build iOS Simulator app
+        run: flutter build ios --simulator --debug
+
+      - name: Package iOS Simulator app
+        run: >-
+          ditto -c -k --sequesterRsrc --keepParent
+          build/ios/iphonesimulator/Runner.app
+          build/ios/iphonesimulator/Stillow-iOS-Simulator.zip
+
+      - name: Upload iOS Simulator app
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stillow-ios-simulator
+          path: build/ios/iphonesimulator/Stillow-iOS-Simulator.zip
+          if-no-files-found: error
+          retention-days: 7
